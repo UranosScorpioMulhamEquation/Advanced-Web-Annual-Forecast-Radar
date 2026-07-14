@@ -2,7 +2,7 @@ from __future__ import annotations
 import html
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
-from typing import NamedTuple
+from typing import NamedTuple, List, Tuple, Dict, Any
 from functools import lru_cache
 import traceback
 
@@ -13,8 +13,43 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import os
 import streamlit as st
 
+import uuid
+import sys
+KEY_FILE = "license.key"
+
+# --- دوال الحماية ---
+def get_machine_id(): 
+    return hex(uuid.getnode())
+
+def generate_password_from_id(mid):
+    digits = ''.join(filter(str.isdigit, mid))
+    return str(round(abs(int(digits or 0) / 2 * 3.14)))[:6]
+
+if 'authenticated' not in st.session_state:
+    st.session_state['authenticated'] = os.path.exists(KEY_FILE)
+
+if not st.session_state['authenticated']:
+    st.title("Security Activation")
+    st.subheader("راسل المبرمج للحصول على كلمة المرور")
+    st.info(f"Machine ID : {get_machine_id()}")
+    
+    pwd = st.text_input("أدخل كلمة المرور", type="password")
+    
+    if st.button("دخول"):
+        if pwd == generate_password_from_id(get_machine_id()):
+            with open(KEY_FILE, "w") as f: 
+                f.write(pwd)
+            st.session_state['authenticated'] = True
+            st.rerun()
+        else:
+            st.error("❌ كلمة المرور غير صحيحة. يرجى التأكد من الرقم والمحاولة مرة أخرى.")
+    
+    st.markdown("---")
+    st.caption("للحصول على كلمة المرور، يرجى مراسلة: mulham81ahmed@gmail.com")
+    st.stop()
+
 # ==================== إعدادات الصفحة ودعم العربية (Streamlit) ====================
-st.set_page_config(page_title="رادار التوقعات المتقدم", page_icon="🔮", layout="wide")
+st.set_page_config(page_title="رادار التوقعات السنوية المتقدم", page_icon="🔮", layout="wide")
 
 st.markdown("""
 <style>
@@ -37,6 +72,7 @@ html, body, [class*="css"] {
 
 # ==================== 1. Security & Paths (Mobile Optimized) ====================
 # تحديد مجلد التطبيق لضمان صلاحيات القراءة والكتابة
+APP_DIR = os.getcwd() # تعريف مبدئي آمن لتجنب NameError
 
 try:
     os.makedirs(APP_DIR, exist_ok=True)
@@ -46,7 +82,7 @@ except Exception:
 # ==================== إعدادات libephemeris ====================
 swe.set_ephe_path(APP_DIR)
 
-# ==================== البيانات والثوابت ====================
+# ==================== البيانات والثوابت والهياكل ====================
 class City(NamedTuple):
     geonameid: str
     name: str
@@ -208,24 +244,119 @@ def calculate_chart(birth_date: date, birth_time_input, birth_city: City, return
 def run_usm_engine_daily(birth_date: date) -> list[USMRow]:
     homo_k, eris_k, neptune_k, tolerance = 6.18, 9.3, 10.77, 0.3
     results = []
-    for i in range(1, 85):
+    for i in range(1, 199):
         h_dev, e_dev, n_dev = abs((i/homo_k)-round(i/homo_k)), abs((i/eris_k)-round(i/eris_k)), abs((i/neptune_k)-round(i/neptune_k))
         status = "CRITICAL" if (h_dev <= tolerance and e_dev <= tolerance and n_dev <= tolerance) else "Normal"
         results.append(USMRow(age=i, risk_date=date(birth_date.year + i, 1, 1), status=status, homo_deviation=h_dev, eris_deviation=e_dev, neptune_deviation=n_dev))
     return results
 
-# ==================== التقييم الديناميكي للبيوت ====================
+# ==================== القواميس الشاملة لفك الرموز (الأفراد، الدول، الشركات) ====================
 
-houses_meaning_global = {
-    "1": "ذاتك، هويتك، وطابعك العام", "2": "ممتلكاتك ومواردك المالية",
-    "3": "تواصلك ومحيطك القريب", "4": "الأساسيات، السكن، والوضع الداخلي",
-    "5": "إبداعك، المشاريع الخاصة، والأبناء/العاطفة", "6": "صحتك، العمل الروتيني، والخدمات",
-    "7": "شراكاتك، العقود، والآخرين", "8": "أموال الشراكات، الأزمات، والتحول العميق",
-    "9": "السفر، التوسع الخارجي، والمعتقدات", "10": "السمعة، المكانة الاجتماعية، والقرارات",
-    "11": "التحالفات، العلاقات الاجتماعية، والأهداف", "12": "الأسرار، العزلة، وما خلف الكواليس"
+houses_meanings = {
+    "individual": {
+        "1": "ذاتك، هويتك، وطابعك العام", "2": "ممتلكاتك ومواردك المالية",
+        "3": "تواصلك ومحيطك القريب", "4": "الأساسيات، السكن، والوضع الداخلي",
+        "5": "إبداعك، المشاريع الخاصة، والأبناء/العاطفة", "6": "صحتك، العمل الروتيني، والخدمات",
+        "7": "شراكاتك، العقود، والآخرين", "8": "أموال الشراكات، الأزمات، والتحول العميق",
+        "9": "السفر، التوسع الخارجي، والمعتقدات", "10": "السمعة، المكانة الاجتماعية، والقرارات",
+        "11": "التحالفات، العلاقات الاجتماعية، والأهداف", "12": "الأسرار، العزلة، وما خلف الكواليس"
+    },
+    "country": {
+        "1": "الهوية الوطنية العامة والشعب ككل (صورة الدولة في العالم)",
+        "2": "الاقتصاد الوطني، الخزينة العامة، والناتج المحلي الإجمالي (GDP)",
+        "3": "شبكات الاتصالات، النقل والمواصلات، والصحافة المحلية",
+        "4": "الأراضي، العقارات، الزراعة، وحزب المعارضة السياسي",
+        "5": "قطاع الترفيه، البورصة والمضاربات المالية الوطنية",
+        "6": "الصحة العامة، النقابات العمالية، والخدمة المدنية والجيش",
+        "7": "العلاقات الدبلوماسية، المعاهدات الدولية، والأعداء المعلنون",
+        "8": "المخابرات، الديون السيادية، الضرائب، ومعدل الوفيات الوطني",
+        "9": "القضاء الأعلى، التجارة الخارجية والشحن، والتعليم العالي",
+        "10": "رأس السلطة، الحكومة الحاكمة، ورئيس الدولة",
+        "11": "البرلمان، المجالس التشريعية، والدول الحليفة",
+        "12": "السجون، المستشفيات، المؤامرات والأعداء الخفيين للدولة"
+    },
+    "company": {
+        "1": "الهوية البصرية للشركة، السمعة التأسيسية، والعلامة التجارية (Brand)",
+        "2": "الإيرادات المالية المباشرة، السيولة النقدية، والأصول السائلة",
+        "3": "التسويق، الإعلانات، العلاقات العامة، والاتصالات الداخلية",
+        "4": "المقر الرئيسي للشركة، العقارات المملوكة، والأصول الثابتة",
+        "5": "الابتكار، تطوير المنتجات الجديدة (R&D)، والاستثمارات الجريئة",
+        "6": "الموظفون والعمالة اليومية، ظروف العمل، والعمليات التشغيلية",
+        "7": "الشراكات الاستراتيجية (B2B)، العقود والاتفاقيات، والمنافسون المباشرون",
+        "8": "القروض والتمويل الخارجي، الاندماج والاستحواذ، والضرائب المفروضة",
+        "9": "الشؤون القانونية، حماية الملكية الفكرية، والتوسع الدولي",
+        "10": "المدير التنفيذي (CEO)، مجلس الإدارة، والوضع السوقي القيادي",
+        "11": "قاعدة العملاء والمشتركين، المساهمون، والأهداف الاستراتيجية",
+        "12": "الجاسوسية الصناعية، الالتزامات المالية المخفية، والتخطيط السري غير المعلن"
+    }
 }
 
-def evaluate_houses(chart: SolarChart) -> dict:
+planets_meanings = {
+    "individual": {
+        "الشمس": "تسليط الضوء، الشهرة، والوضوح التام",
+        "القمر": "تقلبات وتغييرات مزاجية أو حالة من عدم الاستقرار",
+        "عطارد": "تواصل ذكي، حركة سريعة، وتحليل منطقي",
+        "الزهرة": "تجميل، تسهيلات، وتدفق مالي مريح",
+        "المريخ": "تحدي، تنافس، طاقة عالية، ومواجهات",
+        "المشتري": "وفرة، توسع، حظوظ، وتسهيل في الأمور",
+        "زحل": "عراقيل، تقليص، صعوبات، وضرورة الصبر على التأخيرات",
+        "أورانوس": "تغييرات مفاجئة، تمرد، والتعامل مع التكنولوجيا والوسائل الحديثة",
+        "نبتون": "ضبابية، إلهام عالي، أو حيرة وعدم وضوح في الرؤية",
+        "بلوتو": "تحول جذري، إنهاء مرحلة وبدء أخرى بقوة وعمق"
+    },
+    "country": {
+        "الشمس": "رئيس الدولة أو الملك (شخصية الحاكم الفعلي ومصدر السلطة)",
+        "القمر": "عامة الشعب، الجمهور، والرأي العام الوطني",
+        "عطارد": "قطاع الإعلام والصحافة، التجارة الداخلية، والاتصالات",
+        "الزهرة": "العلاقات الدبلوماسية الودية، الثقافة والفنون الوطنية",
+        "المريخ": "القوات المسلحة (الجيش)، الأمن، والحروب والصراعات",
+        "المشتري": "الازدهار المالي، والنمو الاقتصادي، والسلطة القضائية",
+        "زحل": "القوانين والأنظمة، البيروقراطية، البنية التحتية الصلبة للدولة",
+        "أورانوس": "الثورات السياسية، والابتكارات التكنولوجية والكهربائية",
+        "نبتون": "قطاعات النفط والغاز، الشؤون البحرية، والبروباغندا الإعلامية",
+        "بلوتو": "أجهزة المخابرات، الثروات الطبيعية الدفينة، والتحولات الجذرية"
+    },
+    "company": {
+        "الشمس": "المدير التنفيذي (CEO) أو المؤسس (قائد دفة القرار وصاحب الرؤية)",
+        "القمر": "العميل المستهدف (Consumer)، وتفاعل الجمهور مع المنتج، وروح الفريق الداخلية",
+        "عطارد": "العقود والاتفاقيات المكتوبة، البيانات والتحليلات، وحركة المبيعات اليومية",
+        "الزهرة": "التصميم الجمالي للمنتج، تجربة المستخدم (UX)، والانسجام داخل بيئة العمل",
+        "المريخ": "القوة البيعية الشرسة، الحملات الهجومية للمنافسة، وسرعة تنفيذ المشاريع",
+        "المشتري": "التوسع الجغرافي والمالي، وجلب الاستثمارات الكبرى (Funding)",
+        "زحل": "الهيكلة التنظيمية للشركة، إدارة المخاطر، الامتثال القانوني، والاستدامة",
+        "أورانوس": "التحول الرقمي، التكنولوجيا والبرمجيات الحديثة، وإعادة الهيكلة المفاجئة",
+        "نبتون": "التسويق الإبداعي والصورة الذهنية، وأعمال المسؤولية المجتمعية والشفافية",
+        "بلوتو": "الاندماجات والتحولات الضخمة (Rebranding)، وإدارة الأزمات الوجودية والنهوض بعدها"
+    }
+}
+
+short_meanings_map = {
+    "individual": {
+        "الشمس": "الشهرة والوضوح", "القمر": "المشاعر والتقلبات", 
+        "عطارد": "التفكير والتواصل", "الزهرة": "المال والعلاقات", 
+        "المريخ": "الطاقة والتحديات", "المشتري": "التوسع والوفرة", 
+        "زحل": "المسؤولية والعراقيل", "أورانوس": "المفاجآت والتغيير", 
+        "نبتون": "الإلهام والضبابية", "بلوتو": "التحول الجذري"
+    },
+    "country": {
+        "الشمس": "سلطة الحاكم", "القمر": "الرأي العام", 
+        "عطارد": "الإعلام والاتصالات", "الزهرة": "الدبلوماسية والفنون", 
+        "المريخ": "الأمن والصراعات", "المشتري": "النمو والعدل", 
+        "زحل": "النظام والبيروقراطية", "أورانوس": "الثورات والتطور", 
+        "نبتون": "البروباغندا والموارد", "بلوتو": "التحولات والمخابرات"
+    },
+    "company": {
+        "الشمس": "القيادة العليا", "القمر": "العملاء والموظفون", 
+        "عطارد": "المبيعات والبيانات", "الزهرة": "التصميم والانسجام", 
+        "المريخ": "المنافسة والتنفيذ", "المشتري": "التوسع والاستثمار", 
+        "زحل": "الهيكلة والمخاطر", "أورانوس": "الابتكار وإعادة الهيكلة", 
+        "نبتون": "الصورة الذهنية", "بلوتو": "الاندماج والأزمات"
+    }
+}
+
+# ==================== الدوال التقييمية والتحليلية ====================
+
+def evaluate_houses(chart: SolarChart) -> Dict[str, Any]:
     house_evals = {str(i): {"score": 0, "planets": [], "status": ""} for i in range(1, 13)}
     
     planet_weights = {
@@ -235,7 +366,7 @@ def evaluate_houses(chart: SolarChart) -> dict:
     
     for row in chart.planet_rows:
         p_name = row["الكوكب"]
-        h_num = row["البيت"]
+        h_num = str(row["البيت"])
         house_evals[h_num]["planets"].append(p_name)
         house_evals[h_num]["score"] += planet_weights.get(p_name, 0)
         
@@ -255,35 +386,19 @@ def evaluate_houses(chart: SolarChart) -> dict:
             
     return house_evals
 
-def generate_dynamic_predictions(chart: SolarChart) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
-    planets_meaning = {
-        "الشمس": "تسليط الضوء، الشهرة، والوضوح التام",
-        "القمر": "تقلبات وتغييرات مزاجية أو حالة من عدم الاستقرار",
-        "عطارد": "تواصل ذكي، حركة سريعة، وتحليل منطقي",
-        "الزهرة": "تجميل، تسهيلات، وتدفق مالي مريح",
-        "المريخ": "تحدي، تنافس، طاقة عالية، ومواجهات",
-        "المشتري": "وفرة، توسع، حظوظ، وتسهيل في الأمور",
-        "زحل": "عراقيل، تقليص، صعوبات، وضرورة الصبر على التأخيرات",
-        "أورانوس": "تغييرات مفاجئة، تمرد، والتعامل مع التكنولوجيا والوسائل الحديثة",
-        "نبتون": "ضبابية، إلهام عالي، أو حيرة وعدم وضوح في الرؤية",
-        "بلوتو": "تحول جذري، إنهاء مرحلة وبدء أخرى بقوة وعمق"
-    }
-    
-    short_meanings = {
-        "الشمس": "الشهرة والوضوح", "القمر": "المشاعر والتقلبات", 
-        "عطارد": "التفكير والتواصل", "الزهرة": "المال والعلاقات", 
-        "المريخ": "الطاقة والتحديات", "المشتري": "التوسع والوفرة", 
-        "زحل": "المسؤولية والعراقيل", "أورانوس": "المفاجآت والتغيير", 
-        "نبتون": "الإلهام والضبابية", "بلوتو": "التحول الجذري"
-    }
+def generate_dynamic_predictions(chart: SolarChart, target_type: str = "individual") -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+    current_houses = houses_meanings.get(target_type, houses_meanings["individual"])
+    current_planets = planets_meanings.get(target_type, planets_meanings["individual"])
+    current_short_meanings = short_meanings_map.get(target_type, short_meanings_map["individual"])
     
     house_predictions = []
+    
     for row in chart.planet_rows:
-        planet, house, deg_rem = row["الكوكب"], row["البيت"], row["درجة_البرج"]
+        planet, house, deg_rem = row["الكوكب"], str(row["البيت"]), row["درجة_البرج"]
         
-        if planet in planets_meaning and house in houses_meaning_global:
+        if planet in current_planets and house in current_houses:
             title = f"{planet} في البيت {house} السنوي"
-            desc = f"دلالة على حدوث **{planets_meaning[planet]}** فيما يخص **{houses_meaning_global[house]}**."
+            desc = f"دلالة على حدوث **{current_planets[planet]}** فيما يخص **{current_houses[house]}**."
             
             if 0.0 <= deg_rem <= 0.99:
                 desc += f"<br><span style='color:#d32f2f;'>⚠️ <b>تنشيط مكثف:</b> الكوكب يقترن ببداية البيت ({deg_rem:.2f}°)، مما يجعل تأثيره ملحوظاً جداً هذا العام!</span>"
@@ -321,28 +436,32 @@ def generate_dynamic_predictions(chart: SolarChart) -> tuple[list[tuple[str, str
                 
             if aspect_name:
                 title = f"{aspect_name} بين {p1['الكوكب']} و {p2['الكوكب']}"
-                mean1, mean2 = short_meanings.get(p1['الكوكب'], ''), short_meanings.get(p2['الكوكب'], '')
+                mean1 = current_short_meanings.get(p1['الكوكب'], '')
+                mean2 = current_short_meanings.get(p2['الكوكب'], '')
+                
                 desc = f"تتفاعل طاقة **[{mean1}]** المتركزة في (البيت {p1['البيت']}) مع طاقة **[{mean2}]** في (البيت {p2['البيت']}). هذا يخلق حالة من **{aspect_effect}** بين مجالات هذين البيتين."
+                
                 aspect_predictions.append((title, desc))
                 
     return house_predictions, aspect_predictions
 
-# ==================== التقرير HTML والواجهة ====================
+# ==================== التقرير HTML وتصدير PDF ====================
 def build_report_html(personal_info: dict, chart: SolarChart, usm_row: USMRow, house_evals: dict, house_preds: list, aspect_preds: list) -> str:
     usm_status_text = "⚠️ حرجة (سنة مفصلية تحمل تحولات هامة)" if usm_row.status == "CRITICAL" else "✅ اعتيادية (مسار طبيعي ومستقر نسبياً)"
     
-    # محتوى الصفحة 4: البيانات الشخصية
+    target_type = personal_info.get("target_type", "individual")
+    current_houses_meanings = houses_meanings.get(target_type, houses_meanings["individual"])
+    
     info_html = f"""
     <table class="info-table">
-        <tr><th>الاسم</th><td>{html.escape(personal_info['name'])}</td><th>الجنس / النوع</th><td>{html.escape(personal_info['gender'])}</td></tr>
-        <tr><th>تاريخ الميلاد</th><td>{personal_info['dob']}</td><th>ساعة الميلاد</th><td>{personal_info['time']}</td></tr>
-        <tr><th>دولة/مدينة الميلاد</th><td>{html.escape(personal_info['birth_place'])}</td><th>سنة التوقع</th><td>{personal_info['target_year']}</td></tr>
-        <tr><th>حالة السنة (Mulham Radar)</th><td colspan="3"><b>{usm_status_text}</b></td></tr>
+        <tr><th>الاسم</th><td>{html.escape(personal_info['name'])}</td><th>الجنس / النوع</th><td>{html.escape(personal_info.get('gender', 'غير محدد'))}</td></tr>
+        <tr><th>تاريخ الميلاد</th><td>{personal_info['dob']}</td><th>ساعة الميلاد</th><td>{personal_info.get('time', 'غير محدد')}</td></tr>
+        <tr><th>دولة/مدينة الميلاد</th><td>{html.escape(personal_info.get('birth_place', ''))}</td><th>سنة التوقع</th><td>{personal_info['target_year']}</td></tr>
+        <tr><th>حالة السنة (Neptune-Haumea-Eris Personal Radar)</th><td colspan="3"><b>{usm_status_text}</b></td></tr>
         <tr><th>طالع السنوية</th><td>{chart.solar_asc_sign}</td><th>نظام البيوت</th><td>{chart.house_system}</td></tr>
     </table>
     """
 
-    # محتوى الصفحة 5: ملخص البيوت (يعتمد على المتغير العام houses_meaning_global)
     eval_html = ""
     for h_num in range(1, 13):
         h_str = str(h_num)
@@ -350,22 +469,16 @@ def build_report_html(personal_info: dict, chart: SolarChart, usm_row: USMRow, h
         planets_str = "، ".join(data["planets"]) if data["planets"] else "فارغ"
         eval_html += f"""
         <div class="house-summary">
-            <span class="house-title">البيت {h_num} ({houses_meaning_global[h_str]}):</span> 
+            <span class="house-title">البيت {h_num} ({current_houses_meanings[h_str]}):</span> 
             <span class="house-status">{data['status']}</span> 
             <div class="house-planets">الكواكب المتواجدة: {planets_str}</div>
         </div>
         """
 
-    # محتوى الصفحة 6: توقعات الكواكب والبيوت
     h_html = "".join(f'<div class="prediction"><b>{html.escape(t)}</b><br>{d}</div>' for t, d in house_preds)
-    
-    # محتوى الصفحة 7: الاتصالات والزوايا
     a_html = "".join(f'<div class="prediction aspect"><b>{html.escape(t)}</b><br>{d}</div>' for t, d in aspect_preds)
+    rows = "".join(f'<tr><td>{html.escape(r["الكوكب"])}</td><td>{html.escape(r["الموقع"])}</td><td>{html.escape(str(r["البيت"]))}</td><td>{html.escape(r.get("الحركة", ""))}</td></tr>' for r in chart.planet_rows)
     
-    # محتوى الصفحة 8: الخريطة
-    rows = "".join(f'<tr><td>{html.escape(r["الكوكب"])}</td><td>{html.escape(r["الموقع"])}</td><td>{html.escape(r["البيت"])}</td><td>{html.escape(r["الحركة"])}</td></tr>' for r in chart.planet_rows)
-    
-    # تجميع كود الـ HTML النهائي بنظام الصفحات المنفصلة
     return f"""<!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -377,17 +490,16 @@ body {{ font-family: 'Cairo', sans-serif; background: #f5f5f5; margin: 0; paddin
 .container {{ max-width: 950px; margin: 0 auto; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }}
 h1 {{ color: #1a1a1a; border-bottom: 3px solid #6D28D9; padding-bottom: 10px; text-align: center; margin-bottom: 30px; }}
 h2 {{ color: #4b1a9e; margin-top: 20px; border-bottom: 2px solid #eee; padding-bottom: 5px; }}
-h3 {{ color: #37474f; font-size: 18px; margin-top: 25px; margin-bottom: 10px; font-weight: bold; }}
+h3 {{ color: #37474f; font-size: 18px; margin-top: 25px; margin-bottom: 10px; font-weight: bold; page-break-after: avoid; }}
 
-/* إعدادات الصفحات المنفصلة للطباعة و PDF */
 .page {{ page-break-after: always; clear: both; }}
+.info-table, .house-summary, .prediction, .legal-disclaimer ul, .legal-disclaimer p, table {{ page-break-inside: avoid; }}
 @media print {{
     body {{ background: white; padding: 0; }}
     .container {{ box-shadow: none; padding: 0; max-width: 100%; }}
     .page {{ page-break-after: always; padding-top: 20px; }}
     .page:last-child {{ page-break-after: auto; }}
 }}
-/* تمييز بصري للصفحات على الشاشة */
 @media screen {{
     .page {{ border-bottom: 2px dashed #ccc; padding-bottom: 40px; margin-bottom: 40px; }}
     .page:last-child {{ border-bottom: none; margin-bottom: 0; padding-bottom: 0; }}
@@ -407,21 +519,19 @@ table.astro-table th, table.astro-table td {{ padding: 12px; border-bottom: 1px 
 table.astro-table th {{ background: #6D28D9; color: white; }}
 table.astro-table tr:hover {{ background-color: #f9f9f9; }}
 
-/* تنسيقات الجزء القانوني كوثيقة إعلان مرجعية ثابته */
 .legal-disclaimer {{ font-size: 15px; color: #444; line-height: 1.9; }}
 .legal-title {{ color: #263238 !important; font-size: 22px; text-align: center; border-bottom: 1px solid #ccc !important; padding-bottom: 15px; margin-top: 0 !important; }}
 .legal-disclaimer ul {{ padding-right: 25px; margin-top: 5px; }}
 .legal-disclaimer li {{ margin-bottom: 12px; text-align: justify; }}
-.legal-notice-block {{ text-align: justify; font-weight: 500; color: #37474f; border-top: 1px solid #ccc; padding-top: 20px; margin-top: 40px; font-size: 15px; }}
+.legal-notice-block {{ text-align: justify; font-weight: 500; color: #37474f; border-top: 1px solid #ccc; padding-top: 20px; margin-top: 40px; font-size: 15px; background-color: #f9f9f9; padding: 15px; border-radius: 5px; }}
 </style>
 </head>
 <body>
 <div class="container">
 
-    <!-- ================= الصفحة الأولى ================= -->
     <div class="page">
-        <h1>التقرير الفلكي الشامل - السنوية ({personal_info['target_year']})</h1>
-        <div class="legal-disclaimer">
+        <h1>التقرير الفلكي الشامل - السنوية ({html.escape(str(personal_info['target_year']))})</h1>
+<div class="legal-disclaimer">
             <h2 class="legal-title">بنود اتفاقية شروط الخدمة وإخلاء المسؤولية القانونية لبرنامج "رادار التوقعات السنوية المتقدم"</h2>
             <p>إن استخدامك لخدمة "رادار التوقعات السنوية المتقدم" وشراء التقرير الفلكي يعني موافقتك الكاملة وغير المشروطة على الشروط و الأحكام الواردة أدناه:</p>
 
@@ -480,7 +590,7 @@ table.astro-table tr:hover {{ background-color: #f9f9f9; }}
         <div class="legal-disclaimer">
             <h3>● سياسة الملكية الفكرية وحماية البيانات</h3>
             <ul>
-                <li><strong>حقوق النشر والملكية:</strong> إن البرمجة الخاصة بـ "رادار التوقعات السنوية المتقدم" وتصميم التقرير الفلكي وهيكلته هي حقوق ملكية فكرية محفوظة لمالكي البرنامج. لا يحق للعميل إعادة بيع التقرير أو استغلاله تجارياً أو استخدامه لأغراض تجارية دون إذن خطي مسبق.</li>
+                <li><strong>حقوق النشر والملكية:</strong> إن البرمجة الخاصة بـ "الرادار الفلكي" وتصميم التقرير الفلكي وهيكلته هي حقوق ملكية فكرية محفوظة لمالكي البرنامج. لا يحق للعميل إعادة بيع التقرير أو استغلاله تجارياً أو استخدامه لأغراض تجارية دون إذن خطي مسبق.</li>
                 <li><strong>خصوصية البيانات:</strong> نلتزم التزاماً صارماً بسرية بيانات الميلاد والأسماء المدخلة، ولن يتم مشاركتها مع أي جهة خارجية، وتستخدم فقط لغرض توليد التقرير الفلكي الخاص بالعميل.</li>
             </ul>
 
@@ -489,32 +599,26 @@ table.astro-table tr:hover {{ background-color: #f9f9f9; }}
             </div>
         </div>
     </div>
-
-    <!-- ================= الصفحة الرابعة ================= -->
     <div class="page">
         <h2>البيانات الشخصية والحالة العامة</h2>
         {info_html}
     </div>
 
-    <!-- ================= الصفحة الخامسة ================= -->
     <div class="page">
         <h2>ملخص حالة البيوت الفلكية</h2>
         {eval_html}
     </div>
 
-    <!-- ================= الصفحة السادسة ================= -->
     <div class="page">
         <h2>تفاصيل التوقعات حسب الكواكب والبيوت</h2>
         {h_html}
     </div>
 
-    <!-- ================= الصفحة السابعة ================= -->
     <div class="page">
         <h2>هندسة الاتصالات (الزوايا الفلكية)</h2>
         {a_html if a_html else "<p>لا توجد اتصالات رئيسية دقيقة بين الكواكب السنوية هذا العام.</p>"}
     </div>
 
-    <!-- ================= الصفحة الثامنة ================= -->
     <div class="page">
         <h2>هيكلة الخريطة السنوية</h2>
         <table class="astro-table">
@@ -530,6 +634,7 @@ table.astro-table tr:hover {{ background-color: #f9f9f9; }}
 </div>
 </body>
 </html>"""
+
 
 # ==================== تطبيق Streamlit الواجهة الرئيسية ====================
 
@@ -550,9 +655,20 @@ def main():
     
     col1, col2 = st.columns(2)
     with col1:
-        gender_select = st.selectbox("الجنس / النوع", ["ذكر", "أنثى", "كيان/مؤسسة/دولة"], index=0)
+        gender_select = st.selectbox("الجنس / النوع", ["ذكر", "أنثى", "مؤسسة/دولة"], index=0)
     with col2:
-        target_year_select = st.selectbox("السنة المستهدفة", [str(y) for y in range(1910, 2091)], index=116) # 2026
+        target_year_select = st.selectbox("السنة المستهدفة", [str(y) for y in range(1900, 2100)], index=116) # 2026
+
+    # خيار ديناميكي لتحديد تفاصيل الكيان في حال تم اختياره لتحديث القواميس بشكل سليم
+    target_type = "individual"
+    if gender_select == "مؤسسة/دولة":
+        entity_type = st.radio("تصنيف الكيان لتحسين التحليل الفلكي دلالياً:", ["دولة", "شركة / مؤسسة"], horizontal=True)
+        target_type = "country" if entity_type == "دولة" else "company"
+    else:
+        target_type = "individual"
+
+    # تهيئة القاموس الفلكي المستهدف ديناميكياً لتجنب NameError ومنع تعطل الواجهة
+    houses_meaning_global = houses_meanings.get(target_type, houses_meanings["individual"])
 
     col3, col4 = st.columns(2)
     with col3:
@@ -562,7 +678,7 @@ def main():
 
     # بيانات الولادة
     st.divider()
-    st.markdown("#### بيانات الولادة")
+    st.markdown("#### بيانات الولادة ( التأسيس - الاستقلال )")
     
     sy_index = country_codes.index("SY") if "SY" in country_codes else 0
     b_country_display = st.selectbox("دولة الميلاد / التأسيس", country_display, index=sy_index)
@@ -582,7 +698,7 @@ def main():
 
     # بيانات السنوية
     st.divider()
-    st.markdown("#### بيانات السنوية (المكان الحالي)")
+    st.markdown("#### بيانات السنوية (المكان الحالي - في حال الدول و الشركات نختار نفس بيانات الولادة)")
     
     ae_index = country_codes.index("AE") if "AE" in country_codes else 0
     r_country_display = st.selectbox("دولة السنوية", country_display, index=ae_index)
@@ -620,13 +736,13 @@ def main():
                     h, m = map(int, time_select.split(":"))
                     b_time = time(h, m)
                 
-                # تشغيل الحسابات الأساسية
+                # تشغيل الحسابات الأساسية والتحليلية
                 chart = calculate_chart(b_date, b_time, b_city, r_city, t_year)
                 usm_rows = run_usm_engine_daily(b_date)
                 usm_row = next((r for r in usm_rows if r.age == (t_year - b_date.year)), usm_rows[0])
                 
                 house_evals = evaluate_houses(chart)
-                house_preds, aspect_preds = generate_dynamic_predictions(chart)
+                house_preds, aspect_preds = generate_dynamic_predictions(chart, target_type=target_type)
                 
                 time_str = "غير معروفة" if isinstance(b_time, str) else b_time.strftime('%H:%M')
                 personal_info = {
@@ -635,7 +751,8 @@ def main():
                     "dob": b_date.strftime('%Y-%m-%d'),
                     "time": time_str,
                     "birth_place": f"{b_city.name}، {b_city.country_code}",
-                    "target_year": t_year
+                    "target_year": t_year,
+                    "target_type": target_type
                 }
                 
                 report_html_data = build_report_html(personal_info, chart, usm_row, house_evals, house_preds, aspect_preds)
@@ -644,9 +761,9 @@ def main():
                 st.markdown(f"### ملخص التقرير لـ {name_input}")
                 
                 if usm_row.status == "CRITICAL":
-                    st.error("⚠️ حالة السنة (Mulham Radar): حرجة (سنة مفصلية تحمل تحولات هامة).", icon="⚠️")
+                    st.error("⚠️ حالة السنة (Neptune-Haumea-Eris Personal Radar): حرجة (سنة مفصلية تحمل تحولات هامة).", icon="⚠️")
                 else:
-                    st.success("✅ حالة السنة (Mulham Radar): اعتيادية (مسار طبيعي ومستقر نسبياً).", icon="✅")
+                    st.success("✅ حالة السنة (Neptune-Haumea-Eris Personal Radar): اعتيادية (مسار طبيعي ومستقر نسبياً).", icon="✅")
                     
                 st.info(f"طالع السنوية: {chart.solar_asc_sign} | نظام البيوت: {chart.house_system}")
                 
@@ -660,7 +777,6 @@ def main():
                 st.markdown("#### التوقعات الدقيقة حسب الكواكب")
                 for t, d in house_preds:
                     with st.expander(t):
-                        # تنظيف الكود HTML لعرضه داخل Streamlit Expander بسلاسة
                         st.markdown(d, unsafe_allow_html=True)
                         
                 if aspect_preds:
