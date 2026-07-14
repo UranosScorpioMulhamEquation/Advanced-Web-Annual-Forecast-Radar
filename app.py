@@ -37,8 +37,7 @@ html, body, [class*="css"] {
 
 # ==================== 1. Security & Paths (Mobile Optimized) ====================
 # تحديد مجلد التطبيق لضمان صلاحيات القراءة والكتابة
-# تم وضع try/except لضمان عمله في بيئات السيرفرات (Windows/Linux) بجانب الأندرويد
-APP_DIR = "/storage/emulated/0/Download/Astro"
+
 try:
     os.makedirs(APP_DIR, exist_ok=True)
 except Exception:
@@ -329,9 +328,10 @@ def generate_dynamic_predictions(chart: SolarChart) -> tuple[list[tuple[str, str
     return house_predictions, aspect_predictions
 
 # ==================== التقرير HTML والواجهة ====================
-
 def build_report_html(personal_info: dict, chart: SolarChart, usm_row: USMRow, house_evals: dict, house_preds: list, aspect_preds: list) -> str:
     usm_status_text = "⚠️ حرجة (سنة مفصلية تحمل تحولات هامة)" if usm_row.status == "CRITICAL" else "✅ اعتيادية (مسار طبيعي ومستقر نسبياً)"
+    
+    # محتوى الصفحة 4: البيانات الشخصية
     info_html = f"""
     <table class="info-table">
         <tr><th>الاسم</th><td>{html.escape(personal_info['name'])}</td><th>الجنس / النوع</th><td>{html.escape(personal_info['gender'])}</td></tr>
@@ -342,6 +342,7 @@ def build_report_html(personal_info: dict, chart: SolarChart, usm_row: USMRow, h
     </table>
     """
 
+    # محتوى الصفحة 5: ملخص البيوت (يعتمد على المتغير العام houses_meaning_global)
     eval_html = ""
     for h_num in range(1, 13):
         h_str = str(h_num)
@@ -355,17 +356,43 @@ def build_report_html(personal_info: dict, chart: SolarChart, usm_row: USMRow, h
         </div>
         """
 
+    # محتوى الصفحة 6: توقعات الكواكب والبيوت
     h_html = "".join(f'<div class="prediction"><b>{html.escape(t)}</b><br>{d}</div>' for t, d in house_preds)
+    
+    # محتوى الصفحة 7: الاتصالات والزوايا
     a_html = "".join(f'<div class="prediction aspect"><b>{html.escape(t)}</b><br>{d}</div>' for t, d in aspect_preds)
+    
+    # محتوى الصفحة 8: الخريطة
     rows = "".join(f'<tr><td>{html.escape(r["الكوكب"])}</td><td>{html.escape(r["الموقع"])}</td><td>{html.escape(r["البيت"])}</td><td>{html.escape(r["الحركة"])}</td></tr>' for r in chart.planet_rows)
     
-    return f"""<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>تقرير {html.escape(personal_info['name'])} — {personal_info['target_year']}</title>
+    # تجميع كود الـ HTML النهائي بنظام الصفحات المنفصلة
+    return f"""<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>تقرير {html.escape(personal_info['name'])} — {personal_info['target_year']}</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
 body {{ font-family: 'Cairo', sans-serif; background: #f5f5f5; margin: 0; padding: 20px; color: #333; line-height: 1.8; }}
 .container {{ max-width: 950px; margin: 0 auto; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }}
-h1 {{ color: #1a1a1a; border-bottom: 3px solid #6D28D9; padding-bottom: 10px; text-align: center; }}
-h2 {{ color: #4b1a9e; margin-top: 35px; border-bottom: 2px solid #eee; padding-bottom: 5px; }}
+h1 {{ color: #1a1a1a; border-bottom: 3px solid #6D28D9; padding-bottom: 10px; text-align: center; margin-bottom: 30px; }}
+h2 {{ color: #4b1a9e; margin-top: 20px; border-bottom: 2px solid #eee; padding-bottom: 5px; }}
+h3 {{ color: #37474f; font-size: 18px; margin-top: 25px; margin-bottom: 10px; font-weight: bold; }}
+
+/* إعدادات الصفحات المنفصلة للطباعة و PDF */
+.page {{ page-break-after: always; clear: both; }}
+@media print {{
+    body {{ background: white; padding: 0; }}
+    .container {{ box-shadow: none; padding: 0; max-width: 100%; }}
+    .page {{ page-break-after: always; padding-top: 20px; }}
+    .page:last-child {{ page-break-after: auto; }}
+}}
+/* تمييز بصري للصفحات على الشاشة */
+@media screen {{
+    .page {{ border-bottom: 2px dashed #ccc; padding-bottom: 40px; margin-bottom: 40px; }}
+    .page:last-child {{ border-bottom: none; margin-bottom: 0; padding-bottom: 0; }}
+}}
+
 .info-table {{ width: 100%; border-collapse: collapse; margin-bottom: 30px; background: #fafafa; border-radius: 8px; overflow: hidden; }}
 .info-table th, .info-table td {{ padding: 12px; border: 1px solid #ddd; text-align: right; font-size: 15px; }}
 .info-table th {{ background: #f0ebf8; color: #4b1a9e; width: 20%; }}
@@ -379,23 +406,130 @@ table.astro-table {{ width: 100%; border-collapse: collapse; margin: 20px 0; fon
 table.astro-table th, table.astro-table td {{ padding: 12px; border-bottom: 1px solid #eee; }}
 table.astro-table th {{ background: #6D28D9; color: white; }}
 table.astro-table tr:hover {{ background-color: #f9f9f9; }}
-</style></head><body><div class="container">
-<h1>التقرير الفلكي الشامل - السنوية ({personal_info['target_year']})</h1>
-{info_html}
 
-<h2>ملخص حالة البيوت الفلكية</h2>
-{eval_html}
+/* تنسيقات الجزء القانوني كوثيقة إعلان مرجعية ثابته */
+.legal-disclaimer {{ font-size: 15px; color: #444; line-height: 1.9; }}
+.legal-title {{ color: #263238 !important; font-size: 22px; text-align: center; border-bottom: 1px solid #ccc !important; padding-bottom: 15px; margin-top: 0 !important; }}
+.legal-disclaimer ul {{ padding-right: 25px; margin-top: 5px; }}
+.legal-disclaimer li {{ margin-bottom: 12px; text-align: justify; }}
+.legal-notice-block {{ text-align: justify; font-weight: 500; color: #37474f; border-top: 1px solid #ccc; padding-top: 20px; margin-top: 40px; font-size: 15px; }}
+</style>
+</head>
+<body>
+<div class="container">
 
-<h2>تفاصيل التوقعات حسب الكواكب والبيوت</h2>
-{h_html}
+    <!-- ================= الصفحة الأولى ================= -->
+    <div class="page">
+        <h1>التقرير الفلكي الشامل - السنوية ({personal_info['target_year']})</h1>
+        <div class="legal-disclaimer">
+            <h2 class="legal-title">بنود اتفاقية شروط الخدمة وإخلاء المسؤولية القانونية لبرنامج "رادار التوقعات السنوية المتقدم"</h2>
+            <p>إن استخدامك لخدمة "رادار التوقعات السنوية المتقدم" وشراء التقرير الفلكي يعني موافقتك الكاملة وغير المشروطة على الشروط و الأحكام الواردة أدناه:</p>
 
-<h2>هندسة الاتصالات (الزوايا الفلكية)</h2>
-{a_html if a_html else "<p>لا توجد اتصالات رئيسية دقيقة بين الكواكب السنوية هذا العام.</p>"}
+            <h3>● طبيعة الخدمة ومحدوديتها</h3>
+            <ul>
+                <li><strong>طبيعة ترفيهية وإرشادية:</strong> إن برنامج "الرادار الفلكي" هو برنامج حاسوبي تم تصميمه بواسطة خبير فلكي ومبرمج لغة بايثون، بهدف تقديم تقرير فلكي سنوي مبني على حسابات ومواقع الأجرام السماوية. هذا التقرير يُقدم لأغراض ترفيهية، تثقيفية، وإرشادية فقط.</li>
+                <li><strong>توليد آلي وبرمجي:</strong> يعتمد التقرير بالكامل على البيانات الشخصية التي يدخلها العميل (الاسم، تاريخ الميلاد، ساعة الميلاد، ومكانه). أي خطأ في إدخال هذه البيانات يقع على مسؤولية العميل الكاملة ولا تلتزم الإدارة بتعديله مجاناً بعد توليد الملف.</li>
+                <li><strong>ليست نصيحة مهنية:</strong> التوقعات الفلكية ومؤشرات طاقة البيوت الفلكية الواردة في التقرير (بما فيها الحالة الصحية، المالية، المهنية، والاجتماعية) لا تشكل -بأي حال من الأحوال- استشارة طبية، نفسية، مالية، قانونية، أو أكاديمية.</li>
+                <li><strong>حرية الاختيار والمسؤولية:</strong> إن هدف التوقع هو إعطاء لمحة عامة ومؤشرات رمزية لطاقة السنة. ويُقر العميل ويوافق على عدم اتخاذ التقرير كمرجع أو مستند لاتخاذ أي قرار شخصي أو عملي، وأن قراراته تقع تحت مسؤوليته الشخصية والقانونية المطلقة وبناءً على المرجعيات العلمية والأكاديمية والقانونية المعتمدة رسمياً.</li>
+            </ul>
 
-<h2>هيكلة الخريطة السنوية</h2>
-<table class="astro-table"><thead><tr><th>الكوكب</th><th>الموقع الفلكي</th><th>البيت السنوي</th><th>الحركة</th></tr></thead><tbody>{rows}</tbody></table>
-</div></body></html>"""
+            <h3>● إخلاء المسؤولية القانونية الكاملة (Disclaimer)</h3>
+            <ul>
+                <li><strong>إخلاء مسؤولية عن الأضرار:</strong> لا يتحمل مالكو ومطورو برنامج "الرادار الفلكي" أو الفلكي المشرف عليه أي مسؤولية قانونية، مباشرة أو غير مباشرة، عن أي خسائر مادية، أو أضرار معنوية، أو أزمات نفسية، أو قرارات خاطئة قد تنجم عن تفسير العميل أو اعتماده على البيانات والمؤشرات الواردة في هذا التقرير.</li>
+                <li><strong>توصيف طاقة السنة:</strong> التقسيمات الواردة في التقرير (مثل توصيف السنة بـ "حرجة" أو "طبيعية"، أو الإشارة إلى وجود "عراقيل"، "ضغوط"، "تحديات"، أو "تسهيلات وفرص") هي قراءات فلكية رمزية وافتراضية، ولا تعني حتمية وقوع أحداث معينة في حياة العميل الواقعية.</li>
+            </ul>
+        </div>
+    </div>
 
+    <!-- ================= الصفحة الثانية ================= -->
+    <div class="page">
+        <div class="legal-disclaimer">
+            <h3>● البيانات المطلوبة لتقديم الخدمة</h3>
+            <p>يلتزم العميل بتزويد الخدمة بالبيانات التالية لضمان توليد التقرير الفلكي بصيغة PDF:</p>
+            <ul>
+                <li><strong>الاسم الكامل:</strong> يدرج داخل التقرير لغايات التخصيص.</li>
+                <li><strong>تاريخ الميلاد بالكامل:</strong> (اليوم / الشهر / السنة) لبناء الحسابات الفلكية والتوقعات.</li>
+                <li><strong>ساعة الميلاد بدقة:</strong> لضمان دقة تحديد البيوت والطوالع الفلكية.</li>
+                <li><strong>مكان الميلاد:</strong> (الدولة والمدينة) لتحديد الإحداثيات الجغرافية بدقة.</li>
+                <li><strong>سنة التوقع المستهدفة:</strong> لتحديد التوقعات المرتبطة بتلك الفترة الزمنية المحددة.</li>
+            </ul>
+
+            <h3>● سياسة الأسعار وطرق الدفع المقبولة</h3>
+            <p>تم تحديد قيمة الخدمة للحصول على ملف التقرير الفلكي (PDF) كالتالي:</p>
+            <p><strong>وسائل الدفع المتاحة:</strong><br>
+            - 15 دولار أمريكي<br>
+            - 50 ريال سعودي<br>
+            - 10 دينار أردني<br>
+            - 200 ألف ليرة سوريه قديمة / 2000 ليرة سوريه جديدة للمقيمين داخل سوريا</p>
+            
+            <p><strong>● بوابة الدفع PayPal:</strong> وهي مخصصة حصراً للمقيمين في (الولايات المتحدة الأمريكية، كندا، الدول الأوروبية، دول الخليج العربي، والمملكة الأردنية الهاشمية).</p>
+            <p><strong>● الدفع النقدي / الحوالات الداخلية / شام كاش:</strong> مخصصة حصراً للمقيمين داخل أراضي الجمهورية العربية السورية.</p>
+
+            <h3>● القيود الجغرافية والاعتذار عن الخدمة</h3>
+            <ul>
+                <li><strong>الدول المستثناة:</strong> نظراً لعدم توفر دعم لبوابة الدفع الإلكتروني المعتمدة لدينا (PayPal) في بعض الدول والمنطقة الجغرافية، نعتذر وبشكل قطعي عن تقديم الخدمة للمقيمين في الدول التالية:<br>
+                <strong>شمال ووسط أفريقيا:</strong> (مصر، ليبيا، تونس، الجزائر، المغرب، موريتانيا، الصومال، جيبوتي، السودان، جنوب السودان).<br>
+                <strong>الشرق الأوسط:</strong> (الجمهورية اليمنية، جمهورية العراق، دولة فلسطين).</li>
+                <li>يقر العميل بأنه لا يقيم في أي من هذه الدول المستثناة عند طلبه الخدمة، وفي حال استخدام وسائل تحايل لتخطي هذه القيود، يحق للإدارة إلغاء الطلب دون أي التزام مالي أو قانوني تجاهه.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- ================= الصفحة الثالثة ================= -->
+    <div class="page">
+        <div class="legal-disclaimer">
+            <h3>● سياسة الملكية الفكرية وحماية البيانات</h3>
+            <ul>
+                <li><strong>حقوق النشر والملكية:</strong> إن البرمجة الخاصة بـ "رادار التوقعات السنوية المتقدم" وتصميم التقرير الفلكي وهيكلته هي حقوق ملكية فكرية محفوظة لمالكي البرنامج. لا يحق للعميل إعادة بيع التقرير أو استغلاله تجارياً أو استخدامه لأغراض تجارية دون إذن خطي مسبق.</li>
+                <li><strong>خصوصية البيانات:</strong> نلتزم التزاماً صارماً بسرية بيانات الميلاد والأسماء المدخلة، ولن يتم مشاركتها مع أي جهة خارجية، وتستخدم فقط لغرض توليد التقرير الفلكي الخاص بالعميل.</li>
+            </ul>
+
+            <div class="legal-notice-block">
+                بشرائك لهذه الخدمة، فإنك تبصم إلكترونياً بالقبول والالتزام التام بكافة بنود هذه الاتفاقية وإخلاء المسؤولية المعروضة أعلاه.
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= الصفحة الرابعة ================= -->
+    <div class="page">
+        <h2>البيانات الشخصية والحالة العامة</h2>
+        {info_html}
+    </div>
+
+    <!-- ================= الصفحة الخامسة ================= -->
+    <div class="page">
+        <h2>ملخص حالة البيوت الفلكية</h2>
+        {eval_html}
+    </div>
+
+    <!-- ================= الصفحة السادسة ================= -->
+    <div class="page">
+        <h2>تفاصيل التوقعات حسب الكواكب والبيوت</h2>
+        {h_html}
+    </div>
+
+    <!-- ================= الصفحة السابعة ================= -->
+    <div class="page">
+        <h2>هندسة الاتصالات (الزوايا الفلكية)</h2>
+        {a_html if a_html else "<p>لا توجد اتصالات رئيسية دقيقة بين الكواكب السنوية هذا العام.</p>"}
+    </div>
+
+    <!-- ================= الصفحة الثامنة ================= -->
+    <div class="page">
+        <h2>هيكلة الخريطة السنوية</h2>
+        <table class="astro-table">
+            <thead>
+                <tr><th>الكوكب</th><th>الموقع الفلكي</th><th>البيت السنوي</th><th>الحركة</th></tr>
+            </thead>
+            <tbody>
+                {rows}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+</body>
+</html>"""
 
 # ==================== تطبيق Streamlit الواجهة الرئيسية ====================
 
