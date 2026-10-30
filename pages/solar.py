@@ -113,8 +113,6 @@ class SolarChart:
 
 # ==================== تحميل البيانات الجغرافية ====================
 
-@st.cache_data
-# أزلنا الـ @st.cache_data هنا لتجنب مشاكل الـ Pickling تماماً
 def load_cities():
     gc = geonamescache.GeonamesCache()
     cities_list = []
@@ -133,16 +131,17 @@ def load_cities():
             )
     return cities_list
 
-@st.cache_data
 def load_countries():
     gc = geonamescache.GeonamesCache()
     return gc.get_countries()
 
-def get_cities_by_country(country_code: str) -> list:
+def get_cities_by_country(country_code: str) -> list[City]:
     cities = load_cities()
-    # التعامل مع القواميس بدلاً من الـ NamedTuple
-    filtered = [c for c in cities if c["country_code"] == country_code]
-    return sorted(filtered, key=lambda c: c["population"], reverse=True)
+    return sorted(
+        [c for c in cities if c.country_code == country_code],
+        key=lambda c: c.population,
+        reverse=True,
+    )
 
 def get_timezone_for_city(city: dict) -> str | None:
     try:
