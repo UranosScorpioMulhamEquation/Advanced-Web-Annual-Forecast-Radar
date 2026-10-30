@@ -637,8 +637,9 @@ table.astro-table tr:hover {{ background-color: #f9f9f9; }}
 # ==================== تطبيق Streamlit الواجهة الرئيسية ====================
 
 def main():
-    st.markdown("<h2 style='color: #4b1a9e;'>رادار التوقعات السنوية المتقدم - تطوير استرو رادار</h2>", unsafe_allow_html=True)
-    
+    st.markdown("<h2 style='color: #4b1a9e;'>رادار التوقعات السنوية المتقدم للأفراد و الدول</h2>", unsafe_allow_html=True)
+    st.markdown("تطوير استرو رادار")
+    st.markdown("---")
     # تحضير الخيارات الجغرافية والزمنية
     countries = load_countries()
     country_options = sorted([(f"{c['name']} ({c['iso']})", c['iso']) for c in countries.values()], key=lambda x: x[0])
