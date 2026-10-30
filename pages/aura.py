@@ -59,7 +59,6 @@ def get_cities_by_country(country_code: str) -> list[City]:
         reverse=True,
     )
 
-
 def get_utc_julian_day(date_obj: date, time_obj: time, tz_str: str) -> float:
     local_tz = pytz.timezone(tz_str)
     dt = datetime.combine(date_obj, time_obj)
@@ -71,7 +70,6 @@ def get_utc_julian_day(date_obj: date, time_obj: time, tz_str: str) -> float:
         utc_dt.day,
         utc_dt.hour + utc_dt.minute / 60.0 + utc_dt.second / 3600.0,
     )
-
 # ==========================================
 # 1. جدول الحروف الأبجدية الكامل (الجمل الكبير)
 # ==========================================
