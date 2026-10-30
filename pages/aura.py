@@ -1,4 +1,3 @@
-from utils import City, load_cities, load_countries, get_cities_by_country, get_timezone_for_city
 from datetime import datetime, date, time, timedelta
 import itertools
 import os
@@ -14,6 +13,44 @@ from timezonefinder import TimezoneFinder
 
 # ==================== إعدادات Swiss Ephemeris ====================
 swe.set_ephe_path('')  # استخدام وضع Moshier الافتراضي للتقويم الفلكي الدقيق
+# ==================== تحميل البيانات الجغرافية ====================
+
+def load_cities():
+    gc = geonamescache.GeonamesCache()
+    cities_list = []
+    for city_id, city_data in gc.get_cities().items():
+        if city_data.get("population", 0) >= 15000:
+            cities_list.append(
+                City(
+                    geonameid=city_id,
+                    name=city_data.get("name", ""),
+                    country_code=city_data.get("countrycode", ""),
+                    latitude=city_data.get("latitude", 0.0),
+                    longitude=city_data.get("longitude", 0.0),
+                    admin1=city_data.get("admin1code", ""),
+                    population=city_data.get("population", 0),
+                )
+            )
+    return cities_list
+
+def load_countries():
+    gc = geonamescache.GeonamesCache()
+    return gc.get_countries()
+
+def get_cities_by_country(country_code: str) -> list[City]:
+    cities = load_cities()
+    return sorted(
+        [c for c in cities if c.country_code == country_code],
+        key=lambda c: c.population,
+        reverse=True,
+    )
+
+def get_timezone_for_city(city: dict) -> str | None:
+    try:
+        tf = TimezoneFinder()
+        return tf.timezone_at(lat=city["latitude"], lng=city["longitude"])
+    except Exception:
+        return None
 
 def get_utc_julian_day(date_obj: date, time_obj: time, tz_str: str) -> float:
     local_tz = pytz.timezone(tz_str)
