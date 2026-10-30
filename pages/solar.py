@@ -114,21 +114,23 @@ class SolarChart:
 # ==================== تحميل البيانات الجغرافية ====================
 
 @st.cache_data
+# أزلنا الـ @st.cache_data هنا لتجنب مشاكل الـ Pickling تماماً
 def load_cities():
     gc = geonamescache.GeonamesCache()
     cities_list = []
     for city_id, city_data in gc.get_cities().items():
         if city_data.get("population", 0) >= 15000:
-            # تخزينها كقواميس صريحـة (Dictionaries) لتجنب PicklingError تماماً
-            cities_list.append({
-                "geonameid": city_id,
-                "name": city_data.get("name", ""),
-                "country_code": city_data.get("countrycode", ""),
-                "latitude": city_data.get("latitude", 0.0),
-                "longitude": city_data.get("longitude", 0.0),
-                "admin1": city_data.get("admin1code", ""),
-                "population": city_data.get("population", 0),
-            })
+            cities_list.append(
+                City(
+                    geonameid=city_id,
+                    name=city_data.get("name", ""),
+                    country_code=city_data.get("countrycode", ""),
+                    latitude=city_data.get("latitude", 0.0),
+                    longitude=city_data.get("longitude", 0.0),
+                    admin1=city_data.get("admin1code", ""),
+                    population=city_data.get("population", 0),
+                )
+            )
     return cities_list
 
 @st.cache_data
