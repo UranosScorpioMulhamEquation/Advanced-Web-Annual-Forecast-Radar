@@ -13,8 +13,21 @@ from timezonefinder import TimezoneFinder
 
 # ==================== إعدادات Swiss Ephemeris ====================
 swe.set_ephe_path('')  # استخدام وضع Moshier الافتراضي للتقويم الفلكي الدقيق
-# ==================== تحميل البيانات الجغرافية ====================
 
+# ==================== هيكل البيانات الجغرافية ====================
+@dataclass
+class City:
+    geonameid: str
+    name: str
+    country_code: str
+    latitude: float
+    longitude: float
+    admin1: str
+    population: int
+
+# ==================== تحميل البيانات الجغرافية تلقائياً ====================
+
+@st.cache_resource
 def load_cities():
     gc = geonamescache.GeonamesCache()
     cities_list = []
@@ -33,6 +46,7 @@ def load_cities():
             )
     return cities_list
 
+@st.cache_resource
 def load_countries():
     gc = geonamescache.GeonamesCache()
     return gc.get_countries()
@@ -45,12 +59,6 @@ def get_cities_by_country(country_code: str) -> list[City]:
         reverse=True,
     )
 
-def get_timezone_for_city(city: dict) -> str | None:
-    try:
-        tf = TimezoneFinder()
-        return tf.timezone_at(lat=city["latitude"], lng=city["longitude"])
-    except Exception:
-        return None
 
 def get_utc_julian_day(date_obj: date, time_obj: time, tz_str: str) -> float:
     local_tz = pytz.timezone(tz_str)
