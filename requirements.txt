@@ -1,6 +1,6 @@
 streamlit
 pyswisseph
-libephemeris‎
+libephemeris
 geonamescache
 timezonefinder
 pytz
