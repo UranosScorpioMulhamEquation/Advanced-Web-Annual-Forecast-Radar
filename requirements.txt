@@ -1,4 +1,7 @@
 streamlit
+pyswisseph
+libephemeris‎
 geonamescache
-libephemeris
 timezonefinder
+pytz
+pandas
