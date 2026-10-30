@@ -51,6 +51,12 @@ def load_countries():
     gc = geonamescache.GeonamesCache()
     return gc.get_countries()
 
+def get_sorted_countries() -> Tuple[Dict[str, str], List[str]]:
+    countries_data = load_countries()
+    country_map = {c_info["name"]: c_code for c_code, c_info in countries_data.items()}
+    sorted_country_names = sorted(list(country_map.keys()))
+    return country_map, sorted_country_names
+
 def get_cities_by_country(country_code: str) -> list[City]:
     cities = load_cities()
     return sorted(
