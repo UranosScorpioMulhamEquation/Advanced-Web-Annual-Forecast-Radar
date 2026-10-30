@@ -299,7 +299,8 @@ def is_planet_ruler_or_near_asc(planet_name: str, transit_dt: datetime, natal_as
 def libephemeris():
     st.set_page_config(page_title="المحلل الخبير للتنجيم الدولي ومصفوفة الأمم", layout="wide")
     st.title("🌐 نظام مصفوفة الأمم وخوارزميات خرائط عبور التنجيم الدولي (المدمج بنظرية السنوات الخطرة)")
-    st.caption("دمج مصفوفة القدر السياسية مع خرائط العبور الفلكية وتحديد نسب الخطر السنوي - (تطوير الفلكي الدكتور : ملهم احمد)")
+    st.caption("دمج مصفوفة القدر السياسية مع خرائط العبور الفلكية وتحديد نسب الخطر السنوي")
+    st.markdown("تطوير استرو رادار")
     st.markdown("---")
 
     countries_data = load_countries()
