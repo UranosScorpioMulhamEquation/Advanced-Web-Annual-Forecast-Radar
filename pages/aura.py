@@ -670,6 +670,7 @@ def suggest_spiritual_treatment(val_first: int, val_mother: int) -> Dict[str, An
 st.set_page_config(page_title="نظام كشف الطاقات السلبية", layout="wide")
 
 st.title("🔮 نظام كشف أمراض الهالة الروحانية من علم الحرف والتنجيم العربي المطور")
+st.markdown("تطوير استرو رادار")
 st.markdown("---")
 
 country_map, sorted_country_names = get_sorted_countries()
