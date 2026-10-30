@@ -1242,6 +1242,7 @@ def generate_dynamic_solar_predictions(chart: SolarChart) -> Tuple[List[Tuple[st
 # ==============================================================================
 st.title("🌟 برنامج التحليل الفلكي الشامل - استرو رادار")
 st.markdown("##### برنامج فلكي متقدم يساعدك في تحديد ساعه الميلاد و يحلل الميلادية و السنوية")
+st.markdown("تطوير استرو رادار")
 st.markdown("---")
 
 with st.sidebar:
