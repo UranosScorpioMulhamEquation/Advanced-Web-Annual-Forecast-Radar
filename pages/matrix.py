@@ -51,6 +51,36 @@ if not st.session_state['authenticated']:
 # ==================== إعدادات Swiss Ephemeris ====================
 swe.set_ephe_path('')  # استخدام وضع Moshier الافتراضي للتقويم الفلكي الدقيق
 
+# ==================== إعدادات الصفحة ====================
+st.set_page_config(
+    page_title="المحلل الخبير للتنجيم الدولي ومصفوفة الأمم", 
+    layout="wide"
+)
+
+# ==================== تطبيق اتجاه اليمين والخط العربي ====================
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
+html, body, [class*="css"] {
+    direction: rtl;
+    text-align: right;
+    font-family: 'Cairo', Tahoma, sans-serif;
+}
+.stDownloadButton button {
+    background-color: #1e3a8a !important;
+    color: white !important;
+    font-weight: bold;
+    font-size: 16px;
+}
+.stButton button {
+    background-color: #6D28D9;
+    color: white;
+    font-weight: bold;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
 # ==================== الثوابت وقوائم الكواكب والحكام ====================
 
 TARGET_PLANETS = ['Mars', 'Rahu', 'Ketu', 'Saturn', 'Neptune', 'Uranus', 'Pluto']
@@ -297,7 +327,6 @@ def is_planet_ruler_or_near_asc(planet_name: str, transit_dt: datetime, natal_as
 # ==================== الدالة الرئيسية للتطبيق ====================
 
 def libephemeris():
-    st.set_page_config(page_title="المحلل الخبير للتنجيم الدولي ومصفوفة الأمم", layout="wide")
     st.title("🌐 نظام مصفوفة الأمم وخوارزميات خرائط عبور التنجيم الدولي (المدمج بنظرية السنوات الخطرة)")
     st.caption("دمج مصفوفة القدر السياسية مع خرائط العبور الفلكية وتحديد نسب الخطر السنوي")
     st.markdown("تطوير استرو رادار")
