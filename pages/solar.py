@@ -29,23 +29,22 @@ if 'authenticated' not in st.session_state:
     st.session_state['authenticated'] = os.path.exists(KEY_FILE)
 
 if not st.session_state['authenticated']:
-    st.title("Security Activation")
-    st.subheader("راسل المبرمج للحصول على كلمة المرور")
+    st.title("🔑 Security Activation")
+    st.warning("Send your Machine ID to programmer email : mulham81ahmed@gmail.com")
     st.info(f"Machine ID : {get_machine_id()}")
     
-    pwd = st.text_input("أدخل كلمة المرور", type="password")
+    pwd = st.text_input("Enter Activation Key:", type="password")
     
-    if st.button("دخول"):
+    if st.button("Activate"):
         if pwd == generate_password_from_id(get_machine_id()):
             with open(KEY_FILE, "w") as f: 
                 f.write(pwd)
             st.session_state['authenticated'] = True
             st.rerun()
         else:
-            st.error("❌ كلمة المرور غير صحيحة. يرجى التأكد من الرقم والمحاولة مرة أخرى.")
+            st.error("Invalid Activation Key.")
     
     st.markdown("---")
-    st.caption("للحصول على كلمة المرور، يرجى مراسلة: mulham81ahmed@gmail.com")
     st.stop()
 
 # ==================== إعدادات الصفحة ودعم العربية (Streamlit) ====================
