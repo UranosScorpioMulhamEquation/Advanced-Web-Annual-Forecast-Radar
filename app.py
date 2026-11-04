@@ -8,21 +8,30 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# تطبيق اتجاه اليمين والخط العربي
+# تطبيق اتجاه اليمين، الخط العربي، وتوسيع الشريط الجانبي
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
+
 html, body, [class*="css"] {
     direction: rtl;
     text-align: right;
     font-family: 'Cairo', Tahoma, sans-serif;
 }
+
+/* توسيع الشريط الجانبي (Sidebar) ليناسب العناوين الطويلة */
+[data-testid="stSidebar"] {
+    min-width: 400px !important;
+    max-width: 400px !important;
+}
+
 .stDownloadButton button {
     background-color: #1e3a8a !important;
     color: white !important;
     font-weight: bold;
     font-size: 16px;
 }
+
 .stButton button {
     background-color: #6D28D9;
     color: white;
@@ -31,7 +40,7 @@ html, body, [class*="css"] {
 </style>
 """, unsafe_allow_html=True)
 
-# تعريف وتسمية الصفحات باللغة العربية (مع جعل الرئيسية ملفاً مستقلًا داخل pages)
+# تعريف وتسمية الصفحات باللغة العربية
 pg = st.navigation([
     st.Page("pages/home.py", title="الرئيسية", icon="🏠"),
     st.Page("pages/solar.py", title="برنامج خريطة السنوية للأفراد و الشركات و الدول", icon="🔭"),
