@@ -5,3 +5,4 @@ geonamescache
 timezonefinder
 pytz
 pandas
+extra-streamlit-components
