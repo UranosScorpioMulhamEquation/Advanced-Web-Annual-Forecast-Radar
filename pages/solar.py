@@ -15,37 +15,38 @@ import streamlit as st
 
 import uuid
 import sys
+
+# ==================== 1. Security & License ====================
 KEY_FILE = "license.key"
 
-# --- دوال الحماية ---
-def get_machine_id(): 
+def get_machine_id():
     return hex(uuid.getnode())
 
-def generate_password_from_id(mid):
+def generate_password(mid):
     digits = ''.join(filter(str.isdigit, mid))
-    return str(round(abs(int(digits or 0) / 2 * 3.14)))[:6]
+    num = int(digits[:8]) if digits else int(mid.encode().hex(), 16)
+    return str(round(abs(num / 2 * 3.14)))[:6]
 
 if 'authenticated' not in st.session_state:
     st.session_state['authenticated'] = os.path.exists(KEY_FILE)
 
 if not st.session_state['authenticated']:
+    st.set_page_config(page_title="Security Activation", layout="centered")
     st.title("🔑 Security Activation")
     st.warning("Send your Machine ID to programmer email : mulham81ahmed@gmail.com")
-    st.info(f"Machine ID : {get_machine_id()}")
-    
+
+    mid = get_machine_id()
+    st.info(f"Machine ID: {mid}")
     pwd = st.text_input("Enter Activation Key:", type="password")
-    
     if st.button("Activate"):
-        if pwd == generate_password_from_id(get_machine_id()):
-            with open(KEY_FILE, "w") as f: 
-                f.write(pwd)
+        if pwd == generate_password(mid):
+            with open(KEY_FILE, "w") as f: f.write(pwd)
             st.session_state['authenticated'] = True
             st.rerun()
         else:
             st.error("Invalid Activation Key.")
-    
-    st.markdown("---")
     st.stop()
+
 
 # ==================== إعدادات الصفحة ودعم العربية (Streamlit) ====================
 st.set_page_config(page_title="رادار التوقعات السنوية المتقدم", page_icon="🔮", layout="wide")
