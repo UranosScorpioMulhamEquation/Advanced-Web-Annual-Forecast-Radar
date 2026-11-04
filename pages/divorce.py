@@ -52,32 +52,45 @@ st.set_page_config(
 
 
 # ==========================================
-# 2. تهيئة قواعد البيانات الجغرافية
-# ==========================================
-@st.cache_data
-def load_geo_data():
+# ==================== تحميل البيانات الجغرافية ====================
+
+def load_cities():
     gc = geonamescache.GeonamesCache()
-    countries = gc.get_countries()
-    cities = gc.get_cities()
+    cities_list = []
+    for city_id, city_data in gc.get_cities().items():
+        if city_data.get("population", 0) >= 15000:
+            cities_list.append(
+                City(
+                    geonameid=city_id,
+                    name=city_data.get("name", ""),
+                    country_code=city_data.get("countrycode", ""),
+                    latitude=city_data.get("latitude", 0.0),
+                    longitude=city_data.get("longitude", 0.0),
+                    admin1=city_data.get("admin1code", ""),
+                    population=city_data.get("population", 0),
+                )
+            )
+    return cities_list
 
-    country_map = {c["name"]: code for code, c in countries.items()}
-    sorted_countries = sorted(list(country_map.keys()))
+def load_countries():
+    gc = geonamescache.GeonamesCache()
+    return gc.get_countries()
 
-    cities_by_country = {}
-    for c_code in country_map.values():
-        c_cities = [
-            city for city in cities.values() if city["countrycode"] == c_code
-        ]
-        c_cities_sorted = sorted(
-            c_cities, key=lambda x: x["population"], reverse=True
-        )
-        cities_by_country[c_code] = c_cities_sorted
+def get_cities_by_country(country_code: str) -> list[City]:
+    cities = load_cities()
+    return sorted(
+        [c for c in cities if c.country_code == country_code],
+        key=lambda c: c.population,
+        reverse=True,
+    )
 
-    return gc, country_map, sorted_countries, cities_by_country
+def get_timezone_for_city(city: dict) -> str | None:
+    try:
+        tf = TimezoneFinder()
+        return tf.timezone_at(lat=city["latitude"], lng=city["longitude"])
+    except Exception:
+        return None
 
-
-gc, country_map, country_list, cities_by_country = load_geo_data()
-tf = TimezoneFinder()
 
 # ==========================================
 # 3. الثوابت الفلكية وحكام البروج
