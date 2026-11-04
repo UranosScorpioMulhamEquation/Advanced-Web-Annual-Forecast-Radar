@@ -80,12 +80,17 @@ if url_phone and url_key:
                             """, unsafe_allow_html=True)
                             st.stop()
                     else:
-                        # إذا لم يتم إضافته لجدول البيانات بعد، نسمح له بالمرور مؤقتاً بالتحقق الرياضي
                         st.session_state['authenticated'] = True
                 except Exception:
                     st.session_state['authenticated'] = True
             else:
                 st.session_state['authenticated'] = True
+
+        # 🔒 الخطوة الأمنية الإضافية بناءً على فكرتك:
+        # بمجرد النجاح والمصادقة، نحذف مفتاح التفعيل (key) فوراً من شريط العنوان لمنع إظهاره للمستخدم
+        if st.session_state['authenticated'] and "key" in st.query_params:
+            del st.query_params["key"]
+            st.rerun()
 
 # 3. إذا لم يتم التفعيل بعد: إخفاء الشريط الجانبي تماماً وإظهار شاشة الدخول
 if not st.session_state['authenticated']:
@@ -135,8 +140,11 @@ if not st.session_state['authenticated']:
                         pass
                         
                 st.query_params["phone"] = customer_id_input
-                st.query_params["key"] = pwd_input
                 st.query_params["device"] = device_id
+                # لا نضيف المفتاح السري لشريط العنوان أبداً عند الدخول اليدوي
+                if "key" in st.query_params:
+                    del st.query_params["key"]
+                    
                 st.session_state['authenticated'] = True
                 st.rerun()
             else:
