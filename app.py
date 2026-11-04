@@ -1,5 +1,56 @@
 import streamlit as st
+import extra_streamlit_components as st_components
 
+# 1. تهيئة مدير الكوكيز
+cookie_manager = st_components.CookieManager()
+
+# 2. التحقق من كوكي التفعيل السابق في متصفح الزبون (صالح لمدة 5 سنوات)
+auth_cookie = cookie_manager.get(cookie="app_authenticated")
+if auth_cookie == "true":
+    st.session_state['authenticated'] = True
+
+if 'authenticated' not in st.session_state:
+    st.session_state['authenticated'] = False
+
+# دالة التوليد والتحقق الرياضي بناءً على معرّف الزبون (مثل رقم هاتفه)
+def generate_password(customer_id):
+    digits = ''.join(filter(str.isdigit, customer_id))
+    num = int(digits[:8]) if digits else int(customer_id.encode().hex(), 16)
+    return str(round(abs(num / 2 * 3.14)))[:6]
+
+# 3. شاشة التفعيل (تظهر فقط عند أول فتح لمتصفح الزبون)
+if not st.session_state['authenticated']:
+    st.set_page_config(page_title="تفعيل النسخة الخاصة", layout="centered")
+    
+    st.markdown("<h2 style='text-align: center;'>🔑 تفعيل المنظومة الفلكية الخاصة بك</h2>", unsafe_allow_html=True)
+    st.info("الرجاء إدخال رقم هاتفك (أو المعرّف الخاص بك) ومفتاح التفعيل المستلم من المبرمج لمرة واحدة فقط.")
+
+    # حقول إدخال بيانات الزبون
+    customer_id_input = st.text_input("رقم الهاتف أو المعرّف الخاص بك:")
+    pwd_input = st.text_input("مفتاح التفعيل (Activation Key):", type="password")
+    
+    if st.button("تفعيل ودخول النظام"):
+        if customer_id_input and pwd_input:
+            # حساب الكود المتوقع رياضياً بناءً على معرّف هذا الزبون بالذات
+            expected_pwd = generate_password(customer_id_input)
+            
+            if pwd_input == expected_pwd:
+                st.success("تم التفعيل بنجاح! جاري الدخول للمنظومة...")
+                
+                # حفظ حالة التفعيل في متصفح الزبون لمدة 5 سنوات (157,680,000 ثانية)
+                cookie_manager.set("app_authenticated", "true", max_age=157680000)
+                
+                st.session_state['authenticated'] = True
+                st.rerun()
+            else:
+                st.error("مفتاح التفعيل غير صحيح لهذا المعرّف. تأكد من البيانات المرسلة لك.")
+        else:
+            st.warning("الرجاء إدخال المعرّف ومفتاح التفعيل معاً.")
+    st.stop()
+
+# ==========================================================
+# 🚀 [هنا يبدأ تطبيقك الأساسي وصفحاتك ومحرك المنظومة الفلكية]
+# ==========================================================
 # إعدادات الصفحة الرئيسية والتصميم العام
 st.set_page_config(
     page_title="المنظومة الفلكية المطورة",
