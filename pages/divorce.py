@@ -1,11 +1,11 @@
 import datetime
 import os
-from dataclasses import dataclass
 import geonamescache
 import pytz
 import streamlit as st
 import swisseph as swe
 from timezonefinder import TimezoneFinder
+from dataclasses import dataclass
 import uuid
 
 # ==================== 1. Security & License ====================
@@ -39,10 +39,12 @@ if not st.session_state['authenticated']:
             st.error("Invalid Activation Key.")
     st.stop()
 
+
+
 # ==================== إعدادات Swiss Ephemeris ====================
 swe.set_ephe_path('')  # استخدام وضع Moshier الافتراضي للتقويم الفلكي الدقيق
-# ==========================================
 
+# ==========================================
 # 1. إعدادات واجهة المستخدم وتكوين التطبيق
 # ==========================================
 st.set_page_config(
@@ -50,46 +52,10 @@ st.set_page_config(
     layout="wide",
     page_icon="💔",
 )
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
-    html, body, [class*="css"] {
-        font-family: 'Cairo', sans-serif;
-        direction: rtl;
-        text-align: right;
-    }
-    .main-header {
-        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-        padding: 25px;
-        border-radius: 12px;
-        color: white;
-        text-align: center;
-        margin-bottom: 25px;
-    }
-    .stCard {
-        background-color: #ffffff;
-        border: 1px solid #e0e0e0;
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        margin-bottom: 15px;
-    }
-    .badge-health { background-color: #ffcccc; color: #990000; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .badge-career { background-color: #cce5ff; color: #004085; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .badge-family { background-color: #d4edda; color: #155724; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .badge-partner { background-color: #f8d7da; color: #721c24; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .badge-finance { background-color: #fff3cd; color: #856404; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .badge-eco { background-color: #e2e3e5; color: #383d41; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .badge-comprehensive { background-color: #d1ecf1; color: #0c5460; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .badge-popular { background-color: #fce4ec; color: #880e4f; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .badge-military { background-color: #efebe9; color: #3e2723; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .badge-normal { background-color: #e8f5e9; color: #2e7d32; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-</style>
-""", unsafe_allow_html=True)
 
 
 # ==========================================
-# 2. تعريف فئة المدن وتجهيز البيانات الجغرافية
+# 2. تهيئة قواعد البيانات الجغرافية ودوال التحميل
 # ==========================================
 @dataclass
 class City:
@@ -103,6 +69,9 @@ class City:
 
     def __getitem__(self, key):
         return getattr(self, key)
+    
+    def get(self, key, default=None):
+        return getattr(self, key, default)
 
 # ==================== تحميل البيانات الجغرافية ====================
 
@@ -143,21 +112,30 @@ def get_timezone_for_city(city: dict) -> str | None:
     except Exception:
         return None
 
-# تهيئة القوائم والخرائط الجغرافية للاستخدام العام
-countries_data = load_countries()
-country_map = {data['name']: code for code, data in countries_data.items()}
-country_list = sorted(list(country_map.keys()))
+@st.cache_data
+def load_geo_data():
+    gc = geonamescache.GeonamesCache()
+    countries = load_countries()
+    cities = load_cities()
 
-all_cities = load_cities()
-cities_by_country = {}
-for c in all_cities:
-    if c.country_code not in cities_by_country:
-        cities_by_country[c.country_code] = []
-    cities_by_country[c.country_code].append(c)
+    country_map = {c["name"]: code for code, c in countries.items()}
+    sorted_countries = sorted(list(country_map.keys()))
 
-for code in cities_by_country:
-    cities_by_country[code].sort(key=lambda x: x.population, reverse=True)
+    cities_by_country = {}
+    for c_code in country_map.values():
+        c_cities = [
+            city for city in cities if city.country_code == c_code
+        ]
+        c_cities_sorted = sorted(
+            c_cities, key=lambda x: x.population, reverse=True
+        )
+        cities_by_country[c_code] = c_cities_sorted
 
+    return gc, country_map, sorted_countries, cities_by_country
+
+
+gc, country_map, country_list, cities_by_country = load_geo_data()
+tf = TimezoneFinder()
 
 # ==========================================
 # 3. الثوابت الفلكية وحكام البروج
@@ -373,7 +351,7 @@ with col2:
         key="b_country_select",
     )
     b_c_code = country_map[b_country_name]
-    b_city_objects = get_cities_by_country(b_c_code)
+    b_city_objects = cities_by_country.get(b_c_code, [])
     b_city_names = (
         [c["name"] for c in b_city_objects]
         if b_city_objects
@@ -392,7 +370,7 @@ with col3:
         key="sr_country_select",
     )
     sr_c_code = country_map[sr_country_name]
-    sr_city_objects = get_cities_by_country(sr_c_code)
+    sr_city_objects = cities_by_country.get(sr_c_code, [])
     sr_city_names = (
         [c["name"] for c in sr_city_objects]
         if sr_city_objects
@@ -426,9 +404,13 @@ if submit:
         else (25.2048, 55.2708)
     )
 
-    tf = TimezoneFinder()
-    b_tz = tf.timezone_at(lng=b_lon, lat=b_lat) or "UTC"
-    sr_tz = tf.timezone_at(lng=sr_lon, lat=sr_lat) or "UTC"
+    b_tz = get_timezone_for_city(b_city_obj) if b_city_obj else None
+    if not b_tz:
+        b_tz = tf.timezone_at(lng=b_lon, lat=b_lat) or "UTC"
+
+    sr_tz = get_timezone_for_city(sr_city_obj) if sr_city_obj else None
+    if not sr_tz:
+        sr_tz = tf.timezone_at(lng=sr_lon, lat=sr_lat) or "UTC"
 
     jd_birth = get_utc_julian_day(birth_date, birth_time, b_tz)
 
