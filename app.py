@@ -1,6 +1,6 @@
 import streamlit as st
 
-# إعدادات الصفحة الرئيسية
+# إعدادات الصفحة الرئيسية والتصميم العام
 st.set_page_config(
     page_title="المنظومة الفلكية المركزية",
     page_icon="🪐",
@@ -31,21 +31,9 @@ html, body, [class*="css"] {
 </style>
 """, unsafe_allow_html=True)
 
-# تصميم الواجهة الرئيسية
-st.title("🪐 المنظومة الفلكية الحسابية والتحليلية")
-st.markdown("---")
-
-st.markdown("""
-### مرحباً بك في المنظومة المركزية الخاصة بالتحليلات الفلكية
-""")
-st.markdown("""
-### تم تطوير هذه المنظومة بواسطة الباحث الفلكي استرو رادار
-""")
-st.markdown("---")
-
-# تعريف وتسمية الصفحات باللغة العربية (مع تحديد مسار مجلد pages/)
+# تعريف وتسمية الصفحات باللغة العربية (مع جعل الرئيسية ملفاً مستقلًا داخل pages)
 pg = st.navigation([
-    st.Page("app.py", title="الرئيسية", icon="🏠"),
+    st.Page("pages/home.py", title="الرئيسية", icon="🏠"),
     st.Page("pages/solar.py", title="برنامج خريطة السنوية للأفراد و الشركات و الدول", icon="🔭"),
     st.Page("pages/matrix.py", title="مصفوفة القدر للأفراد", icon="📊"),
     st.Page("pages/aura.py", title="برنامج الكشف الطاقي و علاج الهالة", icon="✨"),
