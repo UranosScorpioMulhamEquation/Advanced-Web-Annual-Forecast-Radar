@@ -112,9 +112,7 @@ def get_timezone_for_city(city: dict) -> str | None:
     except Exception:
         return None
 
-@st.cache_data
 def load_geo_data():
-    gc = geonamescache.GeonamesCache()
     countries = load_countries()
     cities = load_cities()
 
@@ -131,10 +129,10 @@ def load_geo_data():
         )
         cities_by_country[c_code] = c_cities_sorted
 
-    return gc, country_map, sorted_countries, cities_by_country
+    # تم حذف gc من هنا لانه لا يمكن عمل pickle له ولأنه غير مستخدم
+    return country_map, sorted_countries, cities_by_country
 
-
-gc, country_map, country_list, cities_by_country = load_geo_data()
+country_map, country_list, cities_by_country = load_geo_data()
 tf = TimezoneFinder()
 
 # ==========================================
