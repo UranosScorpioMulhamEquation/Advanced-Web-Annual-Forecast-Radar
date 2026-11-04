@@ -1,5 +1,4 @@
 import streamlit as st
-import extra_streamlit_components as st_components
 
 # 1. إعدادات الصفحة الأساسية (تُستدعى مرة واحدة فقط في البداية)
 st.set_page_config(
@@ -9,29 +8,30 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. تهيئة مدير الكوكيز
-cookie_manager = st_components.CookieManager()
-
 if 'authenticated' not in st.session_state:
     st.session_state['authenticated'] = False
 
-# 3. جلب حالة التفعيل من الكوكي
-auth_cookie = cookie_manager.get(cookie="app_authenticated")
-
-# إذا وُجد الكوكي وكان صحيحاً، يتم اعتماد الدخول فوراً
-if auth_cookie == "true":
-    st.session_state['authenticated'] = True
-
-# دالة التوليد والتحقق الرياضي بناءً على معرّف الزبون (رقم الهاتف)
+# دالة التوليد والتحقق الرياضي بناءً على رقم الهاتف
 def generate_password(customer_id):
     digits = ''.join(filter(str.isdigit, customer_id))
     num = int(digits[:8]) if digits else int(customer_id.encode().hex(), 16)
     return str(round(abs(num / 2 * 3.14)))[:6]
 
-# 4. إذا لم يتم التفعيل بعد: إخفاء الشريط الجانبي تماماً وإظهار شاشة الدخول
+# 2. التحقق مباشرة من معاملات الرابط (Query Parameters)
+# مثال للرابط: https://your-app.streamlit.app/?phone=00971...&key=...
+query_params = st.query_params
+url_phone = query_params.get("phone", "")
+url_key = query_params.get("key", "")
+
+if url_phone and url_key:
+    expected_pwd = generate_password(url_phone)
+    if url_key == expected_pwd:
+        st.session_state['authenticated'] = True
+
+# 3. إذا لم يتم التفعيل بعد: إخفاء الشريط الجانبي تماماً وإظهار شاشة الدخول
 if not st.session_state['authenticated']:
     
-    # حقن CSS لإخفاء الشريط الجانبي بالكامل لمنع ظهور أي برنامج فرعي قبل التفعيل
+    # حقن CSS لإخفاء الشريط الجانبي بالكامل لمنع ظهور أي برنامج فرعي
     st.markdown("""
     <style>
     [data-testid="stSidebar"] {
@@ -47,10 +47,10 @@ if not st.session_state['authenticated']:
 
     st.markdown("<h2 style='text-align: center;'>🔑 تفعيل المنظومة الفلكية الخاصة بك</h2>", unsafe_allow_html=True)
     st.info("الرجاء مراسلة المبرمج لمرة واحدة فقط على البريد الالكتروني - mulham81ahmed@gmail.com")
-    st.info("الرجاء إدخال رقم هاتفك (بصيغة الدولة مثل 00971501234567...) ومفتاح التفعيل المستلم من المبرمج لمرة واحدة فقط.")
+    st.info("الرجاء إدخال رقم هاتفك ومفتاح التفعيل المستلم، أو فتح الرابط المخصص الخاص بك.")
 
-    # حقول إدخال بيانات الزبون
-    customer_id_input = st.text_input("رقم الهاتف أو المعرّف الخاص بك:")
+    # حقول إدخال بيانات الزبون يدوي لمن لا يملك الرابط المباشر
+    customer_id_input = st.text_input("رقم الهاتف أو المعرّف الخاص بك (مثل 00971...):")
     pwd_input = st.text_input("مفتاح التفعيل (Activation Key):", type="password")
     
     if st.button("تفعيل ودخول النظام"):
@@ -58,10 +58,11 @@ if not st.session_state['authenticated']:
             expected_pwd = generate_password(customer_id_input)
             
             if pwd_input == expected_pwd:
-                st.success("تم التفعيل بنجاح! جاري الدخول للمنظومة...")
+                st.success("تم التفعيل بنجاح! جاري حفظ الرابط ودخول المنظومة...")
                 
-                # حفظ حالة التفعيل في متصفح الزبون لمدة 5 سنوات (157,680,000 ثانية)
-                cookie_manager.set("app_authenticated", "true", max_age=157680000)
+                # تحديث الرابط تلقائياً لكي يحمل بيانات الزبون للأبد دون أن يطلب منه كلمة مرور مجدداً
+                st.query_params["phone"] = customer_id_input
+                st.query_params["key"] = pwd_input
                 
                 st.session_state['authenticated'] = True
                 st.rerun()
