@@ -44,7 +44,6 @@ if url_phone and url_key:
     expected_pwd = generate_password(url_phone)
     if url_key == expected_pwd:
         
-        # إذا لم يكن هناك معرّف جهاز في الرابط بعد، نقوم بتوليده وحقنه تلقائياً في الرابط
         if not url_device:
             new_device_id = uuid.uuid4().hex[:12]
             st.query_params["phone"] = url_phone
@@ -52,7 +51,6 @@ if url_phone and url_key:
             st.query_params["device"] = new_device_id
             st.rerun()
         else:
-            # التحقق السحابي من Supabase لمنع مشاركة الرابط مع جهاز آخر
             if supabase is not None:
                 try:
                     response = supabase.table("licenses").select("*").eq("phone", url_phone).execute()
@@ -63,14 +61,11 @@ if url_phone and url_key:
                         registered_device = str(customer.get("device_id", "") or "").strip()
                         
                         if registered_device in ["", "None", "nan", "EMPTY"]:
-                            # أول جهاز يفتح الرابط -> نربط بصمة الجهاز في Supabase ونقفله للأبد!
                             supabase.table("licenses").update({"device_id": url_device}).eq("phone", url_phone).execute()
                             st.session_state['authenticated'] = True
                         elif registered_device == url_device:
-                            # نفس الجهاز الأصلي المعتمد للزبون
                             st.session_state['authenticated'] = True
                         else:
-                            # محاولة اختراق أو تشغيل من جهاز آخر!
                             st.markdown("""
                             <div style="background-color: #fee2e2; border: 2px solid #ef4444; padding: 30px; border-radius: 12px; text-align: center; direction: rtl; margin-top: 50px;">
                                 <h2 style="color: #991b1b;">⚠️ تنبيه أمني: رابط غير مصرح به</h2>
@@ -86,15 +81,13 @@ if url_phone and url_key:
             else:
                 st.session_state['authenticated'] = True
 
-        # 🔒 الخطوة الأمنية الحاسمة: تنظيف شريط العنوان تماماً وإزالة جميع المعاملات السرية
         if st.session_state['authenticated']:
             st.query_params.clear()
             st.rerun()
 
-# 3. إذا لم يتم التفعيل بعد: إخفاء الشريط الجانبي تماماً وإظهار شاشة الدخول
+# 3. شاشة الدخول والتفعيل
 if not st.session_state['authenticated']:
     
-    # حقن CSS لإخفاء الشريط الجانبي بالكامل
     st.markdown("""
     <style>
     [data-testid="stSidebar"] {
@@ -123,7 +116,6 @@ if not st.session_state['authenticated']:
                 st.success("تم التفعيل بنجاح! جاري قفل الرابط على جهازك ودخول المنظومة...")
                 device_id = uuid.uuid4().hex[:12]
                 
-                # تحديث أو إضافة بصمة الجهاز في Supabase عند التفعيل اليدوي
                 if supabase is not None:
                     try:
                         res = supabase.table("licenses").select("*").eq("phone", customer_id_input).execute()
@@ -139,7 +131,7 @@ if not st.session_state['authenticated']:
                         pass
                 
                 st.session_state['authenticated'] = True
-                st.query_params.clear() # تنظيف الرابط حتى عند الدخول اليدوي
+                st.query_params.clear()
                 st.rerun()
             else:
                 st.error("مفتاح التفعيل غير صحيح لهذا المعرّف. تأكد من البيانات المرسلة لك.")
@@ -148,7 +140,7 @@ if not st.session_state['authenticated']:
     st.stop()
 
 # ==========================================================
-# 🚀 [هنا يبدأ تطبيقك الأساسي وصفحاتك - لا تظهر إلا بعد التفعيل الناجح]
+# 🚀 [التطبيق الرئيسي الموحد - الرابط يظل ثابتاً ونظيفاً 100%]
 # ==========================================================
 
 st.markdown("""
@@ -161,10 +153,9 @@ html, body, [class*="css"] {
     font-family: 'Cairo', Tahoma, sans-serif;
 }
 
-/* توسيع الشريط الجانبي (Sidebar) ليناسب العناوين الطويلة */
 [data-testid="stSidebar"] {
-    min-width: 500px !important;
-    max-width: 500px !important;
+    min-width: 400px !important;
+    max-width: 400px !important;
 }
 
 .stDownloadButton button {
@@ -182,19 +173,53 @@ html, body, [class*="css"] {
 </style>
 """, unsafe_allow_html=True)
 
-# تعريف وتسمية الصفحات باللغة العربية (جعل المصفوفة هي الأولى لتفتح مباشرة عند الدخول)
-pg = st.navigation([
-    st.Page("pages/home.py", title="الرئيسية", icon="🏠"),
-    st.Page("pages/matrix.py", title="مصفوفة القدر للأفراد", icon="📊"),
-    st.Page("pages/solar.py", title="برنامج خريطة السنوية للأفراد و الشركات و الدول", icon="🔭"),
-    st.Page("pages/aura.py", title="برنامج الكشف الطاقي و علاج الهالة الطاقية", icon="✨"),
-    st.Page("pages/dan.py", title="نظرية استرو رادار المطورة لكشف سنوات الخطر للأفراد و الشركات و الدول", icon="📁"),
-    st.Page("pages/divorce.py", title="برنامج كشف سنوات الأزمات الزوجية و الشراكة التجارية", icon="⚖️"),
-    st.Page("pages/fullastro.py", title="المنظومة الفلكية الشاملة لتحليل الخارطة الميلادية و السنوية و توقعات 5 سنوات للأفراد", icon="🔭"),
-    st.Page("pages/graph.py", title="برنامج التنجيم الجغرافي", icon="📈"),
-    st.Page("pages/intmatrix.py", title="مصفوفة القدر المدمج مع السنوات الخطرة الدول", icon="🔢"),
-    st.Page("pages/mrg.py", title="برنامج كشف سنوات الزواج و صفات الشريك المحتملة", icon="🔗"),
-    st.Page("pages/nhe.py", title="نظرية استرو رادار المطورة لكشف سنوات التغيير للأفراد و الشركات و الدول", icon="🌌"),
+# القائمة الجانبية لتنقل المستخدم بين البرامج
+st.sidebar.title("🪐 المنظومة الفلكية")
+menu = st.sidebar.radio("اختر البرنامج:", [
+    "🏠 الرئيسية",
+    "📊 مصفوفة القدر للأفراد",
+    "🔭 برنامج خريطة السنوية للأفراد و الشركات و الدول",
+    "✨ برنامج الكشف الطاقي و علاج الهالة الطاقية",
+    "📁 نظرية استرو رادار المطورة لكشف سنوات الخطر للأفراد و الشركات و الدول",
+    "⚖️ برنامج كشف سنوات الأزمات الزوجية و الشراكة التجارية",
+    "🔭 المنظومة الفلكية الشاملة لتحليل الخارطة الميلادية و السنوية و توقعات 5 سنوات للأفراد",
+    "📈 برنامج التنجيم الجغرافي",
+    "🔢 مصفوفة القدر المدمج مع السنوات الخطرة الدول",
+    "🔗 برنامج كشف سنوات الزواج و صفات الشريك المحتملة",
+    "🌌 نظرية استرو رادار المطورة لكشف سنوات التغيير للأفراد و الشركات و الدول"
 ])
 
-pg.run()
+# تشغيل الملف الفرعي مباشرة دون أي تعديل بداخله
+if menu == "🏠 الرئيسية":
+    with open("subpages/home.py", encoding="utf-8") as f:
+        exec(f.read())
+elif menu == "📊 مصفوفة القدر للأفراد":
+    with open("subpages/matrix.py", encoding="utf-8") as f:
+        exec(f.read())
+elif menu == "🔭 برنامج خريطة السنوية للأفراد و الشركات و الدول":
+    with open("subpages/solar.py", encoding="utf-8") as f:
+        exec(f.read())
+elif menu == "✨ برنامج الكشف الطاقي و علاج الهالة الطاقية":
+    with open("subpages/aura.py", encoding="utf-8") as f:
+        exec(f.read())
+elif menu == "📁 نظرية استرو رادار المطورة لكشف سنوات الخطر للأفراد و الشركات و الدول":
+    with open("subpages/dan.py", encoding="utf-8") as f:
+        exec(f.read())
+elif menu == "⚖️ برنامج كشف سنوات الأزمات الزوجية و الشراكة التجارية":
+    with open("subpages/divorce.py", encoding="utf-8") as f:
+        exec(f.read())
+elif menu == "🔭 المنظومة الفلكية الشاملة لتحليل الخارطة الميلادية و السنوية و توقعات 5 سنوات للأفراد":
+    with open("subpages/fullastro.py", encoding="utf-8") as f:
+        exec(f.read())
+elif menu == "📈 برنامج التنجيم الجغرافي":
+    with open("subpages/graph.py", encoding="utf-8") as f:
+        exec(f.read())
+elif menu == "🔢 مصفوفة القدر المدمج مع السنوات الخطرة الدول":
+    with open("subpages/intmatrix.py", encoding="utf-8") as f:
+        exec(f.read())
+elif menu == "🔗 برنامج كشف سنوات الزواج و صفات الشريك المحتملة":
+    with open("subpages/mrg.py", encoding="utf-8") as f:
+        exec(f.read())
+elif menu == "🌌 نظرية استرو رادار المطورة لكشف سنوات التغيير للأفراد و الشركات و الدول":
+    with open("subpages/nhe.py", encoding="utf-8") as f:
+        exec(f.read())
