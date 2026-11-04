@@ -191,30 +191,30 @@ if menu == "🏠 الرئيسية":
 elif menu == "📊 مصفوفة القدر للأفراد":
     with open("subpages/matrix.py", encoding="utf-8") as f:
         exec(f.read())
-elif menu == "🔭 برنامج خريطة السنوية للأفراد و الشركات و الدول":
+elif menu == "🔭 السنوية للأفراد و الشركات و الدول":
     with open("subpages/solar.py", encoding="utf-8") as f:
         exec(f.read())
-elif menu == "✨ برنامج الكشف الطاقي و علاج الهالة الطاقية":
+elif menu == "✨ الكشف الطاقي و علاج الهالة الطاقية":
     with open("subpages/aura.py", encoding="utf-8") as f:
         exec(f.read())
-elif menu == "📁 نظرية استرو رادار المطورة لكشف سنوات الخطر للأفراد و الشركات و الدول":
+elif menu == "📁 نظريتي لكشف سنوات الخطر أفراد/دول":
     with open("subpages/dan.py", encoding="utf-8") as f:
         exec(f.read())
-elif menu == "⚖️ برنامج كشف سنوات الأزمات الزوجية و الشراكة التجارية":
+elif menu == "⚖️ كشف سنوات الأزمات الزوجية / التجارية":
     with open("subpages/divorce.py", encoding="utf-8") as f:
         exec(f.read())
-elif menu == "🔭 المنظومة الفلكية الشاملة لتحليل الخارطة الميلادية و السنوية و توقعات 5 سنوات للأفراد":
+elif menu == "🔭 منظومة تحليل ميلادية/سنوية/توقعات":
     with open("subpages/fullastro.py", encoding="utf-8") as f:
         exec(f.read())
 elif menu == "📈 برنامج التنجيم الجغرافي":
     with open("subpages/graph.py", encoding="utf-8") as f:
         exec(f.read())
-elif menu == "🔢 مصفوفة القدر المدمج مع السنوات الخطرة الدول":
+elif menu == "🔢 مصفوفة القدر المدمجة بسنوات الخطرة للدول":
     with open("subpages/intmatrix.py", encoding="utf-8") as f:
         exec(f.read())
-elif menu == "🔗 برنامج كشف سنوات الزواج و صفات الشريك المحتملة":
+elif menu == "🔗 كشف سنوات الزواج و صفات الشريك المحتملة":
     with open("subpages/mrg.py", encoding="utf-8") as f:
         exec(f.read())
-elif menu == "🌌 نظرية استرو رادار المطورة لكشف سنوات التغيير للأفراد و الشركات و الدول":
+elif menu == "🌌 نظريتي لكشف سنوات التغيير أفراد/دول":
     with open("subpages/nhe.py", encoding="utf-8") as f:
         exec(f.read())
