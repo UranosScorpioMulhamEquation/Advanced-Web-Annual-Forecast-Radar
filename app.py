@@ -86,10 +86,9 @@ if url_phone and url_key:
             else:
                 st.session_state['authenticated'] = True
 
-        # 🔒 الخطوة الأمنية الإضافية بناءً على فكرتك:
-        # بمجرد النجاح والمصادقة، نحذف مفتاح التفعيل (key) فوراً من شريط العنوان لمنع إظهاره للمستخدم
-        if st.session_state['authenticated'] and "key" in st.query_params:
-            del st.query_params["key"]
+        # 🔒 الخطوة الأمنية الحاسمة: تنظيف شريط العنوان تماماً وإزالة جميع المعاملات السرية
+        if st.session_state['authenticated']:
+            st.query_params.clear()
             st.rerun()
 
 # 3. إذا لم يتم التفعيل بعد: إخفاء الشريط الجانبي تماماً وإظهار شاشة الدخول
@@ -138,14 +137,9 @@ if not st.session_state['authenticated']:
                             }).execute()
                     except Exception:
                         pass
-                        
-                st.query_params["phone"] = customer_id_input
-                st.query_params["device"] = device_id
-                # لا نضيف المفتاح السري لشريط العنوان أبداً عند الدخول اليدوي
-                if "key" in st.query_params:
-                    del st.query_params["key"]
-                    
+                
                 st.session_state['authenticated'] = True
+                st.query_params.clear() # تنظيف الرابط حتى عند الدخول اليدوي
                 st.rerun()
             else:
                 st.error("مفتاح التفعيل غير صحيح لهذا المعرّف. تأكد من البيانات المرسلة لك.")
@@ -188,11 +182,11 @@ html, body, [class*="css"] {
 </style>
 """, unsafe_allow_html=True)
 
-# تعريف وتسمية الصفحات باللغة العربية
+# تعريف وتسمية الصفحات باللغة العربية (جعل المصفوفة هي الأولى لتفتح مباشرة عند الدخول)
 pg = st.navigation([
+    st.Page("pages/matrix.py", title="مصفوفة القدر للأفراد", icon="📊"),
     st.Page("pages/home.py", title="الرئيسية", icon="🏠"),
     st.Page("pages/solar.py", title="برنامج خريطة السنوية للأفراد و الشركات و الدول", icon="🔭"),
-    st.Page("pages/matrix.py", title="مصفوفة القدر للأفراد", icon="📊"),
     st.Page("pages/aura.py", title="برنامج الكشف الطاقي و علاج الهالة الطاقية", icon="✨"),
     st.Page("pages/dan.py", title="نظرية استرو رادار المطورة لكشف سنوات الخطر للأفراد و الشركات و الدول", icon="📁"),
     st.Page("pages/divorce.py", title="برنامج كشف سنوات الأزمات الزوجية و الشراكة التجارية", icon="⚖️"),
