@@ -53,6 +53,28 @@ st.set_page_config(
     page_icon="💔",
 )
 
+# ==========================================
+# دعم اللغة العربية والاتجاه من اليمين لليسار (RTL)
+# ==========================================
+st.markdown(
+    """
+    <style>
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stSidebar"] {
+        direction: rtl;
+        text-align: right;
+    }
+    .stSelectbox, .stTextInput, .stDateInput, .stTimeInput, .stButton, div[data-baseweb="select"], .stMarkdown, p, span, label, div {
+        direction: rtl;
+        text-align: right;
+    }
+    div[data-baseweb="base-input"] {
+        direction: rtl;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 # ==========================================
 # 2. تهيئة قواعد البيانات الجغرافية ودوال التحميل
@@ -749,6 +771,57 @@ if submit:
     )
 
     if divorce_years:
+        # تجهيز محتوى ملف الـ HTML لطباعة وتحميل النتائج
+        html_content = f"""
+        <html dir="rtl" lang="ar">
+        <head>
+            <meta charset="utf-8">
+            <title>تقرير السنوات الحرجة - {name}</title>
+            <style>
+                body {{ font-family: Tahoma, sans-serif; direction: rtl; text-align: right; padding: 20px; background: #f9f9f9; color: #333; }}
+                h1, h2, h3 {{ color: #2c3e50; }}
+                .card {{ background: #fff; border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+                ul {{ margin-top: 5px; }}
+            </style>
+        </head>
+        <body>
+            <h1>تقرير السنوات الحرجة (الأزمات الزوجية / الشراكات)</h1>
+            <p><strong>الاسم:</strong> {name}</p>
+            <p><strong>تاريخ الميلاد:</strong> {birth_date}</p>
+            <hr>
+        """
+        for m in divorce_years:
+            html_content += f"""
+            <div class="card">
+                <h3>سنة {m['year']} (العمر: {m['age']} سنة) - الحالة: {m['mp_status']} | الدلالات: {m['dallalat_count']}/25</h3>
+                <p><strong>تفاصيل التفعيل للميد بوينت:</strong></p>
+                <ul>
+            """
+            for act in m['mp_details']:
+                html_content += f"<li>{act}</li>"
+            html_content += """
+                </ul>
+                <p><strong>دلالات الانفصال والمشاكل:</strong></p>
+                <ul>
+            """
+            for d in m['details']:
+                html_content += f"<li>{d}</li>"
+            html_content += """
+                </ul>
+            </div>
+            """
+        html_content += """
+        </body>
+        </html>
+        """
+
+        st.download_button(
+            label="🖨️ تحميل النتائج كملف HTML للطباعة",
+            data=html_content,
+            file_name=f"divorce_report_{name.replace(' ', '_')}.html",
+            mime="text/html",
+        )
+
         for m in divorce_years:
             emoji = (
                 "⚠"
