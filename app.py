@@ -1,10 +1,18 @@
 import streamlit as st
 import extra_streamlit_components as st_components
 
-# 1. تهيئة مدير الكوكيز
+# 1. إعدادات الصفحة الأساسية (تُستدعى مرة واحدة فقط في البداية)
+st.set_page_config(
+    page_title="المنظومة الفلكية المطورة",
+    page_icon="🪐",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# 2. تهيئة مدير الكوكيز (يعمل على اللابتوب والموبايل بكفاءة)
 cookie_manager = st_components.CookieManager()
 
-# 2. التحقق من كوكي التفعيل السابق في متصفح الزبون (صالح لمدة 5 سنوات)
+# 3. التحقق من كوكي التفعيل السابق (صالح لمدة 5 سنوات)
 auth_cookie = cookie_manager.get(cookie="app_authenticated")
 if auth_cookie == "true":
     st.session_state['authenticated'] = True
@@ -12,18 +20,30 @@ if auth_cookie == "true":
 if 'authenticated' not in st.session_state:
     st.session_state['authenticated'] = False
 
-# دالة التوليد والتحقق الرياضي بناءً على معرّف الزبون (مثل رقم هاتفه)
+# دالة التوليد والتحقق الرياضي بناءً على معرّف الزبون (رقم الهاتف)
 def generate_password(customer_id):
     digits = ''.join(filter(str.isdigit, customer_id))
     num = int(digits[:8]) if digits else int(customer_id.encode().hex(), 16)
     return str(round(abs(num / 2 * 3.14)))[:6]
 
-# 3. شاشة التفعيل (تظهر فقط عند أول فتح لمتصفح الزبون)
+# 4. إذا لم يتم التفعيل بعد: إخفاء الشريط الجانبي تماماً وإظهار شاشة الدخول فقط
 if not st.session_state['authenticated']:
-    st.set_page_config(page_title="تفعيل النسخة الخاصة", layout="centered")
-    
+    # حقن CSS لإخفاء الشريط الجانبي بالكامل لمنع ظهور أي برنامج فرعي
+    st.markdown("""
+    <style>
+    [data-testid="stSidebar"] {
+        display: none !important;
+    }
+    html, body, [class*="css"] {
+        direction: rtl;
+        text-align: right;
+        font-family: 'Cairo', Tahoma, sans-serif;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     st.markdown("<h2 style='text-align: center;'>🔑 تفعيل المنظومة الفلكية الخاصة بك</h2>", unsafe_allow_html=True)
-    st.info("الرجاء إدخال رقم هاتفك (أو المعرّف الخاص بك) ومفتاح التفعيل المستلم من المبرمج لمرة واحدة فقط.")
+    st.info("الرجاء إدخال رقم هاتفك (بصيغة الدولة مثل 00971...) ومفتاح التفعيل المستلم من المبرمج لمرة واحدة فقط.")
 
     # حقول إدخال بيانات الزبون
     customer_id_input = st.text_input("رقم الهاتف أو المعرّف الخاص بك:")
@@ -31,7 +51,6 @@ if not st.session_state['authenticated']:
     
     if st.button("تفعيل ودخول النظام"):
         if customer_id_input and pwd_input:
-            # حساب الكود المتوقع رياضياً بناءً على معرّف هذا الزبون بالذات
             expected_pwd = generate_password(customer_id_input)
             
             if pwd_input == expected_pwd:
@@ -49,17 +68,10 @@ if not st.session_state['authenticated']:
     st.stop()
 
 # ==========================================================
-# 🚀 [هنا يبدأ تطبيقك الأساسي وصفحاتك ومحرك المنظومة الفلكية]
+# 🚀 [هنا يبدأ تطبيقك الأساسي وصفحاتك - لا تظهر إلا بعد التفعيل الناجح]
 # ==========================================================
-# إعدادات الصفحة الرئيسية والتصميم العام
-st.set_page_config(
-    page_title="المنظومة الفلكية المطورة",
-    page_icon="🪐",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
 
-# تطبيق اتجاه اليمين، الخط العربي، وتوسيع الشريط الجانبي
+# تطبيق التنسيقات والخط العربي وتوسيع الشريط الجانبي للبرامج المفعلة
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
