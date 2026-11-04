@@ -1,5 +1,6 @@
 import datetime
 import os
+from dataclasses import dataclass
 import geonamescache
 import pytz
 import streamlit as st
@@ -49,11 +50,58 @@ st.set_page_config(
     layout="wide",
     page_icon="💔",
 )
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+    html, body, [class*="css"] {
+        font-family: 'Cairo', sans-serif;
+        direction: rtl;
+        text-align: right;
+    }
+    .main-header {
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        padding: 25px;
+        border-radius: 12px;
+        color: white;
+        text-align: center;
+        margin-bottom: 25px;
+    }
+    .stCard {
+        background-color: #ffffff;
+        border: 1px solid #e0e0e0;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        margin-bottom: 15px;
+    }
+    .badge-health { background-color: #ffcccc; color: #990000; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+    .badge-career { background-color: #cce5ff; color: #004085; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+    .badge-family { background-color: #d4edda; color: #155724; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+    .badge-partner { background-color: #f8d7da; color: #721c24; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+    .badge-finance { background-color: #fff3cd; color: #856404; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+    .badge-eco { background-color: #e2e3e5; color: #383d41; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+    .badge-comprehensive { background-color: #d1ecf1; color: #0c5460; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+    .badge-popular { background-color: #fce4ec; color: #880e4f; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+    .badge-military { background-color: #efebe9; color: #3e2723; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+    .badge-normal { background-color: #e8f5e9; color: #2e7d32; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+</style>
+""", unsafe_allow_html=True)
 
 
 # ==========================================
-# ==================== تحميل البيانات الجغرافية ====================
+# 2. تعريف فئة المدن وتحميل البيانات الجغرافية
+# ==========================================
+@dataclass
+class City:
+    geonameid: str
+    name: str
+    country_code: str
+    latitude: float
+    longitude: float
+    admin1: str
+    population: int
 
+@st.cache_data
 def load_cities():
     gc = geonamescache.GeonamesCache()
     cities_list = []
@@ -72,22 +120,35 @@ def load_cities():
             )
     return cities_list
 
+@st.cache_data
 def load_countries():
     gc = geonamescache.GeonamesCache()
     return gc.get_countries()
 
-def get_cities_by_country(country_code: str) -> list[City]:
-    cities = load_cities()
-    return sorted(
-        [c for c in cities if c.country_code == country_code],
-        key=lambda c: c.population,
-        reverse=True,
-    )
+# تجهيز الخرائط والقوائم الجغرافية للدول والمدن
+countries_data = load_countries()
+country_map = {data['name']: code for code, data in countries_data.items()}
+country_list = sorted(list(country_map.keys()))
 
-def get_timezone_for_city(city: dict) -> str | None:
+all_cities = load_cities()
+cities_by_country = {}
+for c in all_cities:
+    if c.country_code not in cities_by_country:
+        cities_by_country[c.country_code] = []
+    cities_by_country[c.country_code].append(c)
+
+for code in cities_by_country:
+    cities_by_country[code].sort(key=lambda x: x.population, reverse=True)
+
+def get_cities_by_country(country_code: str) -> list[City]:
+    return cities_by_country.get(country_code, [])
+
+def get_timezone_for_city(city) -> str | None:
     try:
         tf = TimezoneFinder()
-        return tf.timezone_at(lat=city["latitude"], lng=city["longitude"])
+        lat = city.latitude if hasattr(city, 'latitude') else city.get("latitude")
+        lng = city.longitude if hasattr(city, 'longitude') else city.get("longitude")
+        return tf.timezone_at(lat=lat, lng=lng)
     except Exception:
         return None
 
@@ -242,7 +303,6 @@ def check_midpoints_activation(sr_planets, midpoints_dict):
     for mp_name, mp_lon in midpoints_dict.items():
         for p_name, p_data in sr_planets.items():
             p_lon = p_data["lon"]
-            # حساب أقصر مسافة زاوية على الدائرة 360 درجة
             diff = abs((p_lon - mp_lon + 180) % 360 - 180)
             if diff < 2.0:
                 p_sign_idx = int(p_lon / 30)
@@ -253,7 +313,6 @@ def check_midpoints_activation(sr_planets, midpoints_dict):
 
     count = len(activated_mp_names)
 
-    # تحديد نوع الأزمة بناءً على عدد الميد بوينت المفعلة
     if count == 0:
         status = "لا يوجد"
     elif count == 1:
@@ -308,7 +367,7 @@ with col2:
     b_c_code = country_map[b_country_name]
     b_city_objects = cities_by_country.get(b_c_code, [])
     b_city_names = (
-        [c["name"] for c in b_city_objects]
+        [c.name for c in b_city_objects]
         if b_city_objects
         else [b_country_name]
     )
@@ -327,7 +386,7 @@ with col3:
     sr_c_code = country_map[sr_country_name]
     sr_city_objects = cities_by_country.get(sr_c_code, [])
     sr_city_names = (
-        [c["name"] for c in sr_city_objects]
+        [c.name for c in sr_city_objects]
         if sr_city_objects
         else [sr_country_name]
     )
@@ -342,23 +401,24 @@ submit = st.button("حساب سنوات الانفصال والمشاكل الم
 # ==========================================
 if submit:
     b_city_obj = next(
-        (c for c in b_city_objects if c["name"] == b_city_name), None
+        (c for c in b_city_objects if c.name == b_city_name), None
     )
     sr_city_obj = next(
-        (c for c in sr_city_objects if c["name"] == sr_city_name), None
+        (c for c in sr_city_objects if c.name == sr_city_name), None
     )
 
     b_lat, b_lon = (
-        (b_city_obj["latitude"], b_city_obj["longitude"])
+        (b_city_obj.latitude, b_city_obj.longitude)
         if b_city_obj
         else (25.2048, 55.2708)
     )
     sr_lat, sr_lon = (
-        (sr_city_obj["latitude"], sr_city_obj["longitude"])
+        (sr_city_obj.latitude, sr_city_obj.longitude)
         if sr_city_obj
         else (25.2048, 55.2708)
     )
 
+    tf = TimezoneFinder()
     b_tz = tf.timezone_at(lng=b_lon, lat=b_lat) or "UTC"
     sr_tz = tf.timezone_at(lng=sr_lon, lat=sr_lat) or "UTC"
 
@@ -728,7 +788,7 @@ if submit:
     if divorce_years:
         for m in divorce_years:
             emoji = (
-                "⚠️️"
+                "⚠"
                 if m["mp_count"] == 1
                 else ("🚨" if m["mp_count"] == 2 else "💥")
             )
