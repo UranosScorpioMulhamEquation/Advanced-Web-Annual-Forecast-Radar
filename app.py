@@ -12,21 +12,15 @@ st.set_page_config(
 # 2. تهيئة مدير الكوكيز
 cookie_manager = st_components.CookieManager()
 
-# 3. جلب حالة التفعيل من الكوكي
-auth_cookie = cookie_manager.get(cookie="app_authenticated")
-
 if 'authenticated' not in st.session_state:
     st.session_state['authenticated'] = False
 
-# إذا كان الكوكي مسجلاً كـ true، نثبت حالة الدخول
+# 3. جلب حالة التفعيل من الكوكي
+auth_cookie = cookie_manager.get(cookie="app_authenticated")
+
+# إذا وُجد الكوكي وكان صحيحاً، يتم اعتماد الدخول فوراً
 if auth_cookie == "true":
     st.session_state['authenticated'] = True
-
-# 💡 حل مشكلة الـ Refresh: إذا كان الكوكي لا زال في مرحلة التحميل (None)، ننتظر قليلاً ولا نظهر شاشة الدخول فوراً
-if auth_cookie is None and not st.session_state['authenticated']:
-    # نضع مؤشراً بسيطاً ريثما يتم التحقق من المتصفح لمنع القفز السريع لشاشة الدخول
-    st.info("🔄 جاري التحقق من حالة الترخيص في المتصفح...")
-    st.stop()
 
 # دالة التوليد والتحقق الرياضي بناءً على معرّف الزبون (رقم الهاتف)
 def generate_password(customer_id):
@@ -34,9 +28,15 @@ def generate_password(customer_id):
     num = int(digits[:8]) if digits else int(customer_id.encode().hex(), 16)
     return str(round(abs(num / 2 * 3.14)))[:6]
 
-# 4. إذا لم يتم التفعيل بعد (وبعد التأكد تماماً من عدم وجود كوكي صالح):
+# 4. إذا لم يتم التحقق بعد ولم يكن مسجلاً في الجلسة
 if not st.session_state['authenticated']:
-    # حقن CSS لإخفاء الشريط الجانبي بالكامل لمنع ظهور أي برنامج فرعي
+    
+    # إذا كانت الكوكيز لا زالت تقرأ من المتصفح (في ثانية التحميل الأولى)
+    if auth_cookie is None:
+        st.info("🔄 جاري التحقق من حالة الترخيص في المتصفح...")
+        st.stop()  # هنا مسموح بالانتظار لجزء من الثانية ريثما يستجيب المتصفح
+
+    # حقن CSS لإخفاء الشريط الجانبي بالكامل لمنع ظهور أي برنامج فرعي قبل التفعيل
     st.markdown("""
     <style>
     [data-testid="stSidebar"] {
