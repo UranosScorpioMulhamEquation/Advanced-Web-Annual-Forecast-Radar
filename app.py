@@ -140,7 +140,7 @@ if not st.session_state['authenticated']:
     st.stop()
 
 # ==========================================================
-# 🚀 [التطبيق الرئيسي الموحد - بار أقصى اليمين وتنسيق احترافي]
+# 🚀 [التطبيق الرئيسي الموحد - تنسيق احترافي للشريط الجانبي والمحتوى]
 # ==========================================================
 
 st.markdown("""
@@ -153,26 +153,34 @@ html, body, [class*="css"] {
     font-family: 'Cairo', Tahoma, sans-serif;
 }
 
-/* نقل الشريط الجانبي (Sidebar) إلى أقصى اليمين ودعم اللغة العربية */
+/* تثبيت الشريط الجانبي حصرياً في أقصى اليمين */
 [data-testid="stSidebar"] {
+    position: fixed !important;
+    top: 0 !important;
     right: 0 !important;
     left: auto !important;
-    min-width: 520px !important;
-    max-width: 520px !important;
+    height: 100vh !important;
+    width: 440px !important;
+    min-width: 440px !important;
+    max-width: 440px !important;
+    z-index: 100;
     background-color: #fcfcfc !important;
     border-left: 1px solid #e5e7eb !important;
 }
 
-/* إزاحة المحتوى الرئيسي لليسار ليتناسب مع وجود الشريط الجانبي على اليمين */
-[data-testid="stMain"] {
-    margin-right: 520px !important;
+/* ضبط المساحة الرئيسية لتأخذ باقي الشاشة تماماً وتترك مساحة للبار اليميني */
+[data-testid="stMain"], .main {
+    margin-right: 440px !important;
     margin-left: 0 !important;
+    width: calc(100% - 440px) !important;
+    max-width: 100% !important;
+    padding: 2rem !important;
 }
 
-/* ضبط أسماء البرامج الفرعية لتكون في نفس السطر تماماً دون نزول للأسفل */
+/* منع تكسير أسماء البرامج وجعلها في نفس السطر */
 [data-testid="stSidebar"] .stRadio label p {
     white-space: nowrap !important;
-    font-size: 15px !important;
+    font-size: 14px !important;
     font-weight: 600 !important;
 }
 
@@ -191,7 +199,7 @@ html, body, [class*="css"] {
 </style>
 """, unsafe_allow_html=True)
 
-# القائمة الجانبية (على أقصى اليمين الآن)
+# القائمة الجانبية (على أقصى اليمين تماماً)
 st.sidebar.title("🪐 المنظومة الفلكية")
 menu = st.sidebar.radio("اختر البرنامج:", [
     "🏠 الرئيسية",
