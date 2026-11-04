@@ -149,8 +149,6 @@ PLANETS = {
     "Uranus": swe.URANUS,
     "Neptune": swe.NEPTUNE,
     "Pluto": swe.PLUTO,
-    "Rahu": swe.TRUE_NODE,
-    "Chiron": swe.CHIRON,
 }
 
 ZODIAC_NAMES = [
@@ -486,14 +484,6 @@ if submit:
                 "is_retro": speed < 0,
             }
 
-        rahu_lon = sr_planets["Rahu"]["lon"]
-        ketu_lon = (rahu_lon + 180) % 360
-        sr_planets["Ketu"] = {
-            "lon": ketu_lon,
-            "sign": int(ketu_lon / 30),
-            "house": get_house_of_planet(ketu_lon, sr_cusps),
-            "is_retro": True,
-        }
 
         # 1. فحص تفعيل الميد بوينت بنفس البرج وبفرق أقل من درجتين
         mp_details, mp_count, mp_status = check_midpoints_activation(
@@ -668,21 +658,6 @@ if submit:
                 "19. اتصال نحس (تربيع/مقابلة) بين **المريخ والقمر** (حدّة انفعالية، مشاجرات عائلية، وغضب مكتوم)."
             )
 
-        # دلالة 20: العقدتان (راهو/كيتو) في محور البيت 1 / 7
-        if sr_planets["Rahu"]["house"] in [1, 7] or sr_planets["Ketu"][
-            "house"
-        ] in [1, 7]:
-            dallalat_count += 1
-            dallalat_details.append(
-                "20. العقد القمرية (**راهو/كيتو**) على محور الطالع/السابع (مصيرية في الشراكة وتغيير العهد الزوجي)."
-            )
-
-        # دلالة 21: كيرون في البيت السابع السنوي
-        if sr_planets["Chiron"]["house"] == 7:
-            dallalat_count += 1
-            dallalat_details.append(
-                "21. **كيرون** في البيت 7 السنوي (جراح عاطفية عميقة وصعوبة في مداواة الخلاف الزوجي)."
-            )
 
         # دلالة 22: تجمع اثنين أو أكثر من الكواكب النحسة في البيت 7
         malefics_in_7th = [
