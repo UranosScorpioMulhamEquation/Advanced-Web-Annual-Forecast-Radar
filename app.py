@@ -21,8 +21,8 @@ html, body, [class*="css"] {
 
 /* توسيع الشريط الجانبي (Sidebar) ليناسب العناوين الطويلة */
 [data-testid="stSidebar"] {
-    min-width: 400px !important;
-    max-width: 400px !important;
+    min-width: 600px !important;
+    max-width: 600px !important;
 }
 
 .stDownloadButton button {
