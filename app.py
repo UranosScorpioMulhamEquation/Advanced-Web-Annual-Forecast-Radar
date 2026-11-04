@@ -33,7 +33,7 @@ html, body, [class*="css"] {
 
 # تعريف وتسمية الصفحات باللغة العربية (مع جعل الرئيسية ملفاً مستقلًا داخل pages)
 pg = st.navigation([
-    st.Page("app.py", title="الرئيسية", icon="🏠"),
+    st.Page("pages/home.py", title="الرئيسية", icon="🏠"),
     st.Page("pages/solar.py", title="برنامج خريطة السنوية للأفراد و الشركات و الدول", icon="🔭"),
     st.Page("pages/matrix.py", title="مصفوفة القدر للأفراد", icon="📊"),
     st.Page("pages/aura.py", title="برنامج الكشف الطاقي و علاج الهالة", icon="✨"),
