@@ -140,7 +140,7 @@ if not st.session_state['authenticated']:
     st.stop()
 
 # ==========================================================
-# 🚀 [التطبيق الرئيسي الموحد - تنسيق احترافي للشريط الجانبي والمحتوى]
+# 🚀 [التطبيق الرئيسي الموحد - الوضع الافتراضي لستريملايت]
 # ==========================================================
 
 st.markdown("""
@@ -151,37 +151,6 @@ html, body, [class*="css"] {
     direction: rtl;
     text-align: right;
     font-family: 'Cairo', Tahoma, sans-serif;
-}
-
-/* تثبيت الشريط الجانبي حصرياً في أقصى اليمين */
-[data-testid="stSidebar"] {
-    position: fixed !important;
-    top: 0 !important;
-    right: 0 !important;
-    left: auto !important;
-    height: 100vh !important;
-    width: 440px !important;
-    min-width: 440px !important;
-    max-width: 440px !important;
-    z-index: 100;
-    background-color: #fcfcfc !important;
-    border-left: 1px solid #e5e7eb !important;
-}
-
-/* ضبط المساحة الرئيسية لتأخذ باقي الشاشة تماماً وتترك مساحة للبار اليميني */
-[data-testid="stMain"], .main {
-    margin-right: 440px !important;
-    margin-left: 0 !important;
-    width: calc(100% - 440px) !important;
-    max-width: 100% !important;
-    padding: 2rem !important;
-}
-
-/* منع تكسير أسماء البرامج وجعلها في نفس السطر */
-[data-testid="stSidebar"] .stRadio label p {
-    white-space: nowrap !important;
-    font-size: 14px !important;
-    font-weight: 600 !important;
 }
 
 .stDownloadButton button {
@@ -199,7 +168,7 @@ html, body, [class*="css"] {
 </style>
 """, unsafe_allow_html=True)
 
-# القائمة الجانبية (على أقصى اليمين تماماً)
+# القائمة الجانبية (بالوضع الافتراضي على اليسار وبشكل متوافق مع Streamlit تماماً)
 st.sidebar.title("🪐 المنظومة الفلكية")
 menu = st.sidebar.radio("اختر البرنامج:", [
     "🏠 الرئيسية",
