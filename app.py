@@ -7,6 +7,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
 # تطبيق اتجاه اليمين والخط العربي
 st.markdown("""
 <style>
@@ -29,7 +30,6 @@ html, body, [class*="css"] {
 }
 </style>
 """, unsafe_allow_html=True)
-
 
 # تصميم الواجهة الرئيسية
 st.title("🪐 المنظومة الفلكية الحسابية والتحليلية")
