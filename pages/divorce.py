@@ -90,18 +90,6 @@ st.markdown("""
 
 # ==========================================
 # 2. تعريف فئة المدن وتحميل البيانات الجغرافية
-# ==========================================
-@dataclass
-class City:
-    geonameid: str
-    name: str
-    country_code: str
-    latitude: float
-    longitude: float
-    admin1: str
-    population: int
-
-@st.cache_data
 def load_cities():
     gc = geonamescache.GeonamesCache()
     cities_list = []
@@ -120,38 +108,24 @@ def load_cities():
             )
     return cities_list
 
-@st.cache_data
 def load_countries():
     gc = geonamescache.GeonamesCache()
     return gc.get_countries()
 
-# تجهيز الخرائط والقوائم الجغرافية للدول والمدن
-countries_data = load_countries()
-country_map = {data['name']: code for code, data in countries_data.items()}
-country_list = sorted(list(country_map.keys()))
-
-all_cities = load_cities()
-cities_by_country = {}
-for c in all_cities:
-    if c.country_code not in cities_by_country:
-        cities_by_country[c.country_code] = []
-    cities_by_country[c.country_code].append(c)
-
-for code in cities_by_country:
-    cities_by_country[code].sort(key=lambda x: x.population, reverse=True)
-
 def get_cities_by_country(country_code: str) -> list[City]:
-    return cities_by_country.get(country_code, [])
+    cities = load_cities()
+    return sorted(
+        [c for c in cities if c.country_code == country_code],
+        key=lambda c: c.population,
+        reverse=True,
+    )
 
-def get_timezone_for_city(city) -> str | None:
+def get_timezone_for_city(city: dict) -> str | None:
     try:
         tf = TimezoneFinder()
-        lat = city.latitude if hasattr(city, 'latitude') else city.get("latitude")
-        lng = city.longitude if hasattr(city, 'longitude') else city.get("longitude")
-        return tf.timezone_at(lat=lat, lng=lng)
+        return tf.timezone_at(lat=city["latitude"], lng=city["longitude"])
     except Exception:
         return None
-
 
 # ==========================================
 # 3. الثوابت الفلكية وحكام البروج
