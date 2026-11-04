@@ -9,16 +9,24 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. تهيئة مدير الكوكيز (يعمل على اللابتوب والموبايل بكفاءة)
+# 2. تهيئة مدير الكوكيز
 cookie_manager = st_components.CookieManager()
 
-# 3. التحقق من كوكي التفعيل السابق (صالح لمدة 5 سنوات)
+# 3. جلب حالة التفعيل من الكوكي
 auth_cookie = cookie_manager.get(cookie="app_authenticated")
-if auth_cookie == "true":
-    st.session_state['authenticated'] = True
 
 if 'authenticated' not in st.session_state:
     st.session_state['authenticated'] = False
+
+# إذا كان الكوكي مسجلاً كـ true، نثبت حالة الدخول
+if auth_cookie == "true":
+    st.session_state['authenticated'] = True
+
+# 💡 حل مشكلة الـ Refresh: إذا كان الكوكي لا زال في مرحلة التحميل (None)، ننتظر قليلاً ولا نظهر شاشة الدخول فوراً
+if auth_cookie is None and not st.session_state['authenticated']:
+    # نضع مؤشراً بسيطاً ريثما يتم التحقق من المتصفح لمنع القفز السريع لشاشة الدخول
+    st.info("🔄 جاري التحقق من حالة الترخيص في المتصفح...")
+    st.stop()
 
 # دالة التوليد والتحقق الرياضي بناءً على معرّف الزبون (رقم الهاتف)
 def generate_password(customer_id):
@@ -26,7 +34,7 @@ def generate_password(customer_id):
     num = int(digits[:8]) if digits else int(customer_id.encode().hex(), 16)
     return str(round(abs(num / 2 * 3.14)))[:6]
 
-# 4. إذا لم يتم التفعيل بعد: إخفاء الشريط الجانبي تماماً وإظهار شاشة الدخول فقط
+# 4. إذا لم يتم التفعيل بعد (وبعد التأكد تماماً من عدم وجود كوكي صالح):
 if not st.session_state['authenticated']:
     # حقن CSS لإخفاء الشريط الجانبي بالكامل لمنع ظهور أي برنامج فرعي
     st.markdown("""
@@ -43,7 +51,7 @@ if not st.session_state['authenticated']:
     """, unsafe_allow_html=True)
 
     st.markdown("<h2 style='text-align: center;'>🔑 تفعيل المنظومة الفلكية الخاصة بك</h2>", unsafe_allow_html=True)
-    st.info(" الرجاء مراسلة المبرمج لمرة واحدة فقط على البريد الالكتروني - mulham81ahmed@gmail.com")
+    st.info("الرجاء مراسلة المبرمج لمرة واحدة فقط على البريد الالكتروني - mulham81ahmed@gmail.com")
     st.info("الرجاء إدخال رقم هاتفك (بصيغة الدولة مثل 00971501234567...) ومفتاح التفعيل المستلم من المبرمج لمرة واحدة فقط.")
 
     # حقول إدخال بيانات الزبون
@@ -72,7 +80,6 @@ if not st.session_state['authenticated']:
 # 🚀 [هنا يبدأ تطبيقك الأساسي وصفحاتك - لا تظهر إلا بعد التفعيل الناجح]
 # ==========================================================
 
-# تطبيق التنسيقات والخط العربي وتوسيع الشريط الجانبي للبرامج المفعلة
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
