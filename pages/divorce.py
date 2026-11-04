@@ -89,7 +89,23 @@ st.markdown("""
 
 
 # ==========================================
-# 2. تعريف فئة المدن وتحميل البيانات الجغرافية
+# 2. تعريف فئة المدن وتجهيز البيانات الجغرافية
+# ==========================================
+@dataclass
+class City:
+    geonameid: str
+    name: str
+    country_code: str
+    latitude: float
+    longitude: float
+    admin1: str
+    population: int
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+# ==================== تحميل البيانات الجغرافية ====================
+
 def load_cities():
     gc = geonamescache.GeonamesCache()
     cities_list = []
@@ -126,6 +142,22 @@ def get_timezone_for_city(city: dict) -> str | None:
         return tf.timezone_at(lat=city["latitude"], lng=city["longitude"])
     except Exception:
         return None
+
+# تهيئة القوائم والخرائط الجغرافية للاستخدام العام
+countries_data = load_countries()
+country_map = {data['name']: code for code, data in countries_data.items()}
+country_list = sorted(list(country_map.keys()))
+
+all_cities = load_cities()
+cities_by_country = {}
+for c in all_cities:
+    if c.country_code not in cities_by_country:
+        cities_by_country[c.country_code] = []
+    cities_by_country[c.country_code].append(c)
+
+for code in cities_by_country:
+    cities_by_country[code].sort(key=lambda x: x.population, reverse=True)
+
 
 # ==========================================
 # 3. الثوابت الفلكية وحكام البروج
@@ -277,6 +309,7 @@ def check_midpoints_activation(sr_planets, midpoints_dict):
     for mp_name, mp_lon in midpoints_dict.items():
         for p_name, p_data in sr_planets.items():
             p_lon = p_data["lon"]
+            # حساب أقصر مسافة زاوية على الدائرة 360 درجة
             diff = abs((p_lon - mp_lon + 180) % 360 - 180)
             if diff < 2.0:
                 p_sign_idx = int(p_lon / 30)
@@ -287,6 +320,7 @@ def check_midpoints_activation(sr_planets, midpoints_dict):
 
     count = len(activated_mp_names)
 
+    # تحديد نوع الأزمة بناءً على عدد الميد بوينت المفعلة
     if count == 0:
         status = "لا يوجد"
     elif count == 1:
@@ -339,9 +373,9 @@ with col2:
         key="b_country_select",
     )
     b_c_code = country_map[b_country_name]
-    b_city_objects = cities_by_country.get(b_c_code, [])
+    b_city_objects = get_cities_by_country(b_c_code)
     b_city_names = (
-        [c.name for c in b_city_objects]
+        [c["name"] for c in b_city_objects]
         if b_city_objects
         else [b_country_name]
     )
@@ -358,9 +392,9 @@ with col3:
         key="sr_country_select",
     )
     sr_c_code = country_map[sr_country_name]
-    sr_city_objects = cities_by_country.get(sr_c_code, [])
+    sr_city_objects = get_cities_by_country(sr_c_code)
     sr_city_names = (
-        [c.name for c in sr_city_objects]
+        [c["name"] for c in sr_city_objects]
         if sr_city_objects
         else [sr_country_name]
     )
@@ -375,19 +409,19 @@ submit = st.button("حساب سنوات الانفصال والمشاكل الم
 # ==========================================
 if submit:
     b_city_obj = next(
-        (c for c in b_city_objects if c.name == b_city_name), None
+        (c for c in b_city_objects if c["name"] == b_city_name), None
     )
     sr_city_obj = next(
-        (c for c in sr_city_objects if c.name == sr_city_name), None
+        (c for c in sr_city_objects if c["name"] == sr_city_name), None
     )
 
     b_lat, b_lon = (
-        (b_city_obj.latitude, b_city_obj.longitude)
+        (b_city_obj["latitude"], b_city_obj["longitude"])
         if b_city_obj
         else (25.2048, 55.2708)
     )
     sr_lat, sr_lon = (
-        (sr_city_obj.latitude, sr_city_obj.longitude)
+        (sr_city_obj["latitude"], sr_city_obj["longitude"])
         if sr_city_obj
         else (25.2048, 55.2708)
     )
