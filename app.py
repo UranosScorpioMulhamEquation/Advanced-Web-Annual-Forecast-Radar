@@ -2,7 +2,7 @@ import streamlit as st
 
 # إعدادات الصفحة الرئيسية والتصميم العام
 st.set_page_config(
-    page_title="المنظومة الفلكية المركزية",
+    page_title="المنظومة الفلكية المطورة",
     page_icon="🪐",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -45,14 +45,14 @@ pg = st.navigation([
     st.Page("pages/home.py", title="الرئيسية", icon="🏠"),
     st.Page("pages/solar.py", title="برنامج خريطة السنوية للأفراد و الشركات و الدول", icon="🔭"),
     st.Page("pages/matrix.py", title="مصفوفة القدر للأفراد", icon="📊"),
-    st.Page("pages/aura.py", title="برنامج الكشف الطاقي و علاج الهالة", icon="✨"),
-    st.Page("pages/dan.py", title="نظرية الدكتور ملهم احمد المطورة لكشف سنوات الخطر للأفراد و الشركات و الدول", icon="📁"),
+    st.Page("pages/aura.py", title="برنامج الكشف الطاقي و علاج الهالة الطاقية", icon="✨"),
+    st.Page("pages/dan.py", title="نظرية استرو رادار المطورة لكشف سنوات الخطر للأفراد و الشركات و الدول", icon="📁"),
     st.Page("pages/divorce.py", title="برنامج كشف سنوات الأزمات الزوجية و الشراكة التجارية", icon="⚖️"),
-    st.Page("pages/fullastro.py", title="المنظومة الفلكية الشاملة لتحليل الخارطة الميلادية و السنوية و توقعات خمسة سنوات للأفراد", icon="🔭"),
+    st.Page("pages/fullastro.py", title="المنظومة الفلكية الشاملة لتحليل الخارطة الميلادية و السنوية و توقعات 5 سنوات للأفراد", icon="🔭"),
     st.Page("pages/graph.py", title="برنامج التنجيم الجغرافي", icon="📈"),
     st.Page("pages/intmatrix.py", title="مصفوفة القدر المدمج مع السنوات الخطرة للدول", icon="🔢"),
-    st.Page("pages/mrg.py", title="برنامج كشف سنوات الزواج و صفات الشريك المحتمله", icon="🔗"),
-    st.Page("pages/nhe.py", title="نظرية الدكتور ملهم احمد المطورة لكشف سنوات التغيير للأفراد و الشركات و الدول", icon="🌌"),
+    st.Page("pages/mrg.py", title="برنامج كشف سنوات الزواج و صفات الشريك المحتملة", icon="🔗"),
+    st.Page("pages/nhe.py", title="نظرية استرو رادار المطورة لكشف سنوات التغيير للأفراد و الشركات و الدول", icon="🌌"),
 ])
 
 pg.run()
