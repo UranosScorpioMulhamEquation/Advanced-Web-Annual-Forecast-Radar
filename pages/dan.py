@@ -51,6 +51,28 @@ if not st.session_state['authenticated']:
 # ==================== إعدادات Swiss Ephemeris ====================
 swe.set_ephe_path('')  # استخدام وضع Moshier الافتراضي للتقويم الفلكي الدقيق
 
+# ==========================================
+# دعم اللغة العربية والاتجاه من اليمين لليسار (RTL)
+# ==========================================
+st.markdown(
+    """
+    <style>
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stSidebar"] {
+        direction: rtl;
+        text-align: right;
+    }
+    .stSelectbox, .stTextInput, .stDateInput, .stTimeInput, .stButton, div[data-baseweb="select"], .stMarkdown, p, span, label, div {
+        direction: rtl;
+        text-align: right;
+    }
+    div[data-baseweb="base-input"] {
+        direction: rtl;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # ==================== الثوابت وقوائم الكواكب والحكام ====================
 
 TARGET_PLANETS = ['Mars', 'Rahu', 'Ketu', 'Saturn', 'Neptune', 'Uranus', 'Pluto']
