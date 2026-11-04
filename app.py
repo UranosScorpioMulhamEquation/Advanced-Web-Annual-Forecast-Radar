@@ -140,7 +140,7 @@ if not st.session_state['authenticated']:
     st.stop()
 
 # ==========================================================
-# 🚀 [التطبيق الرئيسي الموحد - الرابط يظل ثابتاً ونظيفاً 100%]
+# 🚀 [التطبيق الرئيسي الموحد - بار أقصى اليمين وتنسيق احترافي]
 # ==========================================================
 
 st.markdown("""
@@ -153,9 +153,27 @@ html, body, [class*="css"] {
     font-family: 'Cairo', Tahoma, sans-serif;
 }
 
+/* نقل الشريط الجانبي (Sidebar) إلى أقصى اليمين ودعم اللغة العربية */
 [data-testid="stSidebar"] {
-    min-width: 400px !important;
-    max-width: 400px !important;
+    right: 0 !important;
+    left: auto !important;
+    min-width: 520px !important;
+    max-width: 520px !important;
+    background-color: #fcfcfc !important;
+    border-left: 1px solid #e5e7eb !important;
+}
+
+/* إزاحة المحتوى الرئيسي لليسار ليتناسب مع وجود الشريط الجانبي على اليمين */
+[data-testid="stMain"] {
+    margin-right: 520px !important;
+    margin-left: 0 !important;
+}
+
+/* ضبط أسماء البرامج الفرعية لتكون في نفس السطر تماماً دون نزول للأسفل */
+[data-testid="stSidebar"] .stRadio label p {
+    white-space: nowrap !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
 }
 
 .stDownloadButton button {
@@ -173,7 +191,7 @@ html, body, [class*="css"] {
 </style>
 """, unsafe_allow_html=True)
 
-# القائمة الجانبية لتنقل المستخدم بين البرامج
+# القائمة الجانبية (على أقصى اليمين الآن)
 st.sidebar.title("🪐 المنظومة الفلكية")
 menu = st.sidebar.radio("اختر البرنامج:", [
     "🏠 الرئيسية",
