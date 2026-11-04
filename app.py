@@ -28,14 +28,9 @@ def generate_password(customer_id):
     num = int(digits[:8]) if digits else int(customer_id.encode().hex(), 16)
     return str(round(abs(num / 2 * 3.14)))[:6]
 
-# 4. إذا لم يتم التحقق بعد ولم يكن مسجلاً في الجلسة
+# 4. إذا لم يتم التفعيل بعد: إخفاء الشريط الجانبي تماماً وإظهار شاشة الدخول
 if not st.session_state['authenticated']:
     
-    # إذا كانت الكوكيز لا زالت تقرأ من المتصفح (في ثانية التحميل الأولى)
-    if auth_cookie is None:
-        st.info("🔄 جاري التحقق من حالة الترخيص في المتصفح...")
-        st.stop()  # هنا مسموح بالانتظار لجزء من الثانية ريثما يستجيب المتصفح
-
     # حقن CSS لإخفاء الشريط الجانبي بالكامل لمنع ظهور أي برنامج فرعي قبل التفعيل
     st.markdown("""
     <style>
