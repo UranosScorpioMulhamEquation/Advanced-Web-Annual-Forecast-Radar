@@ -33,31 +33,19 @@ def generate_password(customer_id):
     num = int(digits) if digits else int(customer_id.encode().hex(), 16)
     return str(round(abs(num / 2 * 3.14)))[:6]
 
-# 🌐 حقن كود JavaScript لتوليد بصمة متصفح ثابتة وحفظها في LocalStorage وضبط الـ URL تلقائياً
-st.markdown("""
-<script>
-const STORAGE_KEY = 'astro_radar_device_uuid';
-let deviceId = localStorage.getItem(STORAGE_KEY);
-if (!deviceId) {
-    deviceId = 'dev_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    localStorage.setItem(STORAGE_KEY, deviceId);
-}
-const urlParams = new URLSearchParams(window.location.search);
-if (!urlParams.has('device') || urlParams.get('device') !== deviceId) {
-    urlParams.set('device', deviceId);
-    window.location.search = urlParams.toString();
-}
-</script>
-""", unsafe_allow_html=True)
+# 🛡️ توليد بصمة جهاز ثابتة في الرابط تلقائياً عبر بايثون (تتحسس المتصفح وتمنع الأخطاء)
+if "device" not in st.query_params or not st.query_params["device"]:
+    st.query_params["device"] = uuid.uuid4().hex[:12]
+    st.rerun()
 
-# قراءة معاملات الرابط وبصمة المتصفح
+# قراءة معاملات الرابط وبصمة الجهاز الثابتة
 query_params = st.query_params
 url_phone = query_params.get("phone", "")
 url_key = query_params.get("key", "")
 client_device_id = query_params.get("device", "")
 
-# 2. التحقق من صحة المفتاح عبر الرابط المباشر مع فحص بصمة المتصفح الثابتة
-if url_phone and url_key and client_device_id:
+# 2. التحقق من صحة المفتاح عبر الرابط المباشر مع فحص بصمة الجهاز في السحابة
+if url_phone and url_key:
     expected_pwd = generate_password(url_phone)
     if url_key == expected_pwd:
         if supabase is not None:
@@ -68,20 +56,20 @@ if url_phone and url_key and client_device_id:
                     customer = rows[0]
                     registered_device = str(customer.get("device_id", "") or "").strip()
                     
-                    # إذا كانت خانة الجهاز فارغة (أول دخوله) -> نربطها ببصمة المتصفح للأبد
+                    # إذا كانت خانة الجهاز فارغة في السحابة -> نسجل بصمة هذا المتصفح فوراً
                     if registered_device in ["", "None", "nan", "EMPTY"]:
                         supabase.table("licenses").update({"device_id": client_device_id}).eq("phone", url_phone).execute()
                         st.session_state['authenticated'] = True
                     elif registered_device == client_device_id:
-                        # نفس بصمة المتصفح الأصلية (يعمل بسلاسة حتى لو حدث Refresh أو تغيرت شبكة الإنترنت)
+                        # تطابق تام (يعمل بسلاسة عند عمل Refresh)
                         st.session_state['authenticated'] = True
                     else:
-                        # محاولة اختراق أو تشغيل من متصفح/جهاز مختلف!
+                        # محاولة استخدام من جهاز/متصفح مختلف!
                         st.markdown("""
                         <div style="background-color: #fee2e2; border: 2px solid #ef4444; padding: 30px; border-radius: 12px; text-align: center; direction: rtl; margin-top: 50px;">
                             <h2 style="color: #991b1b;">⚠️ تنبيه أمني صارم: ترخيص مقفل</h2>
-                            <p style="font-size: 18px; color: #7f1d1d;">عذراً، هذا الرقم مسجل ومقفل حصرياً على متصفح وجهاز مستخدم آخر ولا يمكن تشغيله من جهاز جديد.</p>
-                            <p style="font-size: 14px; color: #6b7280;">إذا كنت صاحب الحساب وغيرت جهازك، يرجى مراسلة المبرمج لتحديث بصمة جهازك.</p>
+                            <p style="font-size: 18px; color: #7f1d1d;">عذراً، هذا الرقم مسجل ومقفل حصرياً على جهاز وزبون آخر ولا يمكن تشغيله من جهاز جديد.</p>
+                            <p style="font-size: 14px; color: #6b7280;">إذا كنت صاحب الحساب وتغيرت بياناتك، يرجى مراسلة المبرمج لتحديث بصمة جهازك.</p>
                         </div>
                         """, unsafe_allow_html=True)
                         st.stop()
@@ -96,7 +84,7 @@ if url_phone and url_key and client_device_id:
             st.query_params.clear()
             st.rerun()
 
-# 3. شاشة الدخول والتفعيل (اليدوي - محمي بالكامل عبر بصمة المتصفح الثابتة)
+# 3. شاشة الدخول والتفعيل (اليدوي)
 if not st.session_state['authenticated']:
     
     st.markdown("""
@@ -114,9 +102,9 @@ if not st.session_state['authenticated']:
 
     st.markdown("<h2 style='text-align: center;'>🔑 تفعيل المنظومة الفلكية الخاصة بك</h2>", unsafe_allow_html=True)
     st.info("الرجاء مراسلة المبرمج لمرة واحدة فقط على البريد الالكتروني - mulham81ahmed@gmail.com")
-    st.info("الرجاء إدخال رقم هاتفك ومفتاح التفعيل المستلم، أو فتح الرابط المخصص الخاص بك.")
+    st.info("الرجاء إدخال رقم هاتفك ومفتاح التفعيل المستلم.")
 
-    customer_id_input = st.text_input("رقم الهاتف أو المعرّف الخاص بك (مثل 123456789...):")
+    customer_id_input = st.text_input("رقم الهاتف أو المعرّف الخاص بك (مثل 00971...):")
     pwd_input = st.text_input("مفتاح التفعيل (Activation Key):", type="password")
     
     if st.button("تفعيل ودخول النظام"):
@@ -124,10 +112,6 @@ if not st.session_state['authenticated']:
             expected_pwd = generate_password(customer_id_input)
             
             if pwd_input == expected_pwd:
-                if not client_device_id:
-                    st.error("⚠️ جاري تهيئة بصمة الجهاز، يرجى الانتظار ثانية واحدة وإعادة المحاولة.")
-                    st.stop()
-
                 if supabase is not None:
                     try:
                         res = supabase.table("licenses").select("*").eq("phone", customer_id_input).execute()
@@ -135,16 +119,16 @@ if not st.session_state['authenticated']:
                             customer = res.data[0]
                             registered_device = str(customer.get("device_id", "") or "").strip()
                             
-                            # فحص قفل بصمة المتصفح
+                            # فحص هل الجهاز مقفل لشخص آخر
                             if registered_device not in ["", "None", "nan", "EMPTY"]:
                                 if registered_device != client_device_id:
-                                    st.error("⚠️ عذراً، هذا الرقم مسجل ومقفل بالفعل على جهاز/متصفح مستخدم آخر ولا يمكن تشغيله يدوياً من مكان جديد.")
+                                    st.error("⚠️ عذراً، هذا الرقم مسجل ومقفل بالفعل على جهاز مستخدم آخر ولا يمكن تشغيله يدوياً من مكان جديد.")
                                     st.stop()
                             else:
-                                # إذا لم يكن مسجلاً من قبل، نقوم بتسجيل بصمة المتصفح الحالي
+                                # تسجيل بصمة هذا الجهاز لأول مرة في السحابة
                                 supabase.table("licenses").update({"device_id": client_device_id}).eq("phone", customer_id_input).execute()
                         else:
-                            # إدخال جديد إذا لم يكن موجوداً
+                            # إذا لم يكن موجوداً من الأساس في الجدول، نضيفه مع بصمته
                             supabase.table("licenses").insert({
                                 "phone": customer_id_input,
                                 "key": pwd_input,
