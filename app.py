@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import uuid
 from supabase import create_client, Client
 
 # 1. إعدادات الصفحة الأساسية
@@ -32,27 +33,31 @@ def generate_password(customer_id):
     num = int(digits) if digits else int(customer_id.encode().hex(), 16)
     return str(round(abs(num / 2 * 3.14)))[:6]
 
-# دالة جلب عنوان الـ IP الحقيقي للزائر (سواء لابتوب أو موبايل)
-def get_client_ip():
-    try:
-        headers = st.context.headers
-        # استخراج الـ IP من ترويسات الشبكة أو الـ Proxy
-        ip = headers.get("X-Forwarded-For", "").split(",")[0].strip()
-        if not ip:
-            ip = headers.get("X-Real-Ip", "Unknown_IP")
-        return ip
-    except Exception:
-        return "Unknown_IP"
+# 🌐 حقن كود JavaScript لتوليد بصمة متصفح ثابتة وحفظها في LocalStorage وضبط الـ URL تلقائياً
+st.markdown("""
+<script>
+const STORAGE_KEY = 'astro_radar_device_uuid';
+let deviceId = localStorage.getItem(STORAGE_KEY);
+if (!deviceId) {
+    deviceId = 'dev_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    localStorage.setItem(STORAGE_KEY, deviceId);
+}
+const urlParams = new URLSearchParams(window.location.search);
+if (!urlParams.has('device') || urlParams.get('device') !== deviceId) {
+    urlParams.set('device', deviceId);
+    window.location.search = urlParams.toString();
+}
+</script>
+""", unsafe_allow_html=True)
 
-# قراءة معاملات الرابط
+# قراءة معاملات الرابط وبصمة المتصفح
 query_params = st.query_params
 url_phone = query_params.get("phone", "")
 url_key = query_params.get("key", "")
+client_device_id = query_params.get("device", "")
 
-current_ip = get_client_ip()
-
-# 2. التحقق من صحة المفتاح عبر الرابط المباشر مع فحص الـ IP الثابت
-if url_phone and url_key:
+# 2. التحقق من صحة المفتاح عبر الرابط المباشر مع فحص بصمة المتصفح الثابتة
+if url_phone and url_key and client_device_id:
     expected_pwd = generate_password(url_phone)
     if url_key == expected_pwd:
         if supabase is not None:
@@ -63,20 +68,20 @@ if url_phone and url_key:
                     customer = rows[0]
                     registered_device = str(customer.get("device_id", "") or "").strip()
                     
-                    # إذا كانت خانة الجهاز فارغة (أول دخوله) -> نربطها بالـ IP الحالي للأبد
+                    # إذا كانت خانة الجهاز فارغة (أول دخوله) -> نربطها ببصمة المتصفح للأبد
                     if registered_device in ["", "None", "nan", "EMPTY"]:
-                        supabase.table("licenses").update({"device_id": current_ip}).eq("phone", url_phone).execute()
+                        supabase.table("licenses").update({"device_id": client_device_id}).eq("phone", url_phone).execute()
                         st.session_state['authenticated'] = True
-                    elif registered_device == current_ip:
-                        # نفس الـ IP الأصلي (يعمل حتى لو حدث Refresh)
+                    elif registered_device == client_device_id:
+                        # نفس بصمة المتصفح الأصلية (يعمل بسلاسة حتى لو حدث Refresh أو تغيرت شبكة الإنترنت)
                         st.session_state['authenticated'] = True
                     else:
-                        # محاولة اختراق أو تشغيل من جهاز/شبكة مختلفة!
+                        # محاولة اختراق أو تشغيل من متصفح/جهاز مختلف!
                         st.markdown("""
                         <div style="background-color: #fee2e2; border: 2px solid #ef4444; padding: 30px; border-radius: 12px; text-align: center; direction: rtl; margin-top: 50px;">
                             <h2 style="color: #991b1b;">⚠️ تنبيه أمني صارم: ترخيص مقفل</h2>
-                            <p style="font-size: 18px; color: #7f1d1d;">عذراً، هذا الرقم مسجل ومقفل حصرياً على جهاز وزبون آخر ولا يمكن تشغيله من شبكة أو جهاز جديد.</p>
-                            <p style="font-size: 14px; color: #6b7280;">إذا كنت صاحب الحساب وتغيرت شبكتك، يرجى مراسلة المبرمج لتحديث بصمة جهازك.</p>
+                            <p style="font-size: 18px; color: #7f1d1d;">عذراً، هذا الرقم مسجل ومقفل حصرياً على متصفح وجهاز مستخدم آخر ولا يمكن تشغيله من جهاز جديد.</p>
+                            <p style="font-size: 14px; color: #6b7280;">إذا كنت صاحب الحساب وغيرت جهازك، يرجى مراسلة المبرمج لتحديث بصمة جهازك.</p>
                         </div>
                         """, unsafe_allow_html=True)
                         st.stop()
@@ -91,7 +96,7 @@ if url_phone and url_key:
             st.query_params.clear()
             st.rerun()
 
-# 3. شاشة الدخول والتفعيل (اليدوي - محمي بالكامل عبر الـ IP)
+# 3. شاشة الدخول والتفعيل (اليدوي - محمي بالكامل عبر بصمة المتصفح الثابتة)
 if not st.session_state['authenticated']:
     
     st.markdown("""
@@ -111,7 +116,7 @@ if not st.session_state['authenticated']:
     st.info("الرجاء مراسلة المبرمج لمرة واحدة فقط على البريد الالكتروني - mulham81ahmed@gmail.com")
     st.info("الرجاء إدخال رقم هاتفك ومفتاح التفعيل المستلم، أو فتح الرابط المخصص الخاص بك.")
 
-    customer_id_input = st.text_input("رقم الهاتف أو المعرّف الخاص بك (مثل 00971...):")
+    customer_id_input = st.text_input("رقم الهاتف أو المعرّف الخاص بك (مثل 123456789...):")
     pwd_input = st.text_input("مفتاح التفعيل (Activation Key):", type="password")
     
     if st.button("تفعيل ودخول النظام"):
@@ -119,6 +124,10 @@ if not st.session_state['authenticated']:
             expected_pwd = generate_password(customer_id_input)
             
             if pwd_input == expected_pwd:
+                if not client_device_id:
+                    st.error("⚠️ جاري تهيئة بصمة الجهاز، يرجى الانتظار ثانية واحدة وإعادة المحاولة.")
+                    st.stop()
+
                 if supabase is not None:
                     try:
                         res = supabase.table("licenses").select("*").eq("phone", customer_id_input).execute()
@@ -126,20 +135,20 @@ if not st.session_state['authenticated']:
                             customer = res.data[0]
                             registered_device = str(customer.get("device_id", "") or "").strip()
                             
-                            # فحص قفل الـ IP
+                            # فحص قفل بصمة المتصفح
                             if registered_device not in ["", "None", "nan", "EMPTY"]:
-                                if registered_device != current_ip:
-                                    st.error("⚠️ عذراً، هذا الرقم مسجل ومقفل بالفعل على جهاز/شبكة مستخدم آخر ولا يمكن تشغيله يدوياً من مكان جديد.")
+                                if registered_device != client_device_id:
+                                    st.error("⚠️ عذراً، هذا الرقم مسجل ومقفل بالفعل على جهاز/متصفح مستخدم آخر ولا يمكن تشغيله يدوياً من مكان جديد.")
                                     st.stop()
                             else:
-                                # إذا لم يكن مسجلاً من قبل، نقوم بتسجيل الـ IP الحالي
-                                supabase.table("licenses").update({"device_id": current_ip}).eq("phone", customer_id_input).execute()
+                                # إذا لم يكن مسجلاً من قبل، نقوم بتسجيل بصمة المتصفح الحالي
+                                supabase.table("licenses").update({"device_id": client_device_id}).eq("phone", customer_id_input).execute()
                         else:
                             # إدخال جديد إذا لم يكن موجوداً
                             supabase.table("licenses").insert({
                                 "phone": customer_id_input,
                                 "key": pwd_input,
-                                "device_id": current_ip
+                                "device_id": client_device_id
                             }).execute()
                     except Exception as e:
                         pass
