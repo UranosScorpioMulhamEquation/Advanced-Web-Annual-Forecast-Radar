@@ -35,7 +35,7 @@ def generate_password(customer_id):
 # 🌐 جلب بصمة المتصفح الثابتة من رابط الـ URL
 client_device_id = st.query_params.get("device", "")
 
-# إذا لم تكن البصمة موجودة في الرابط، نقوم بجلبها من ذاكرة المتصفح المحلية (LocalStorage) وضبط الرابط فوراً
+# إذا لم تكن البصمة موجودة في الرابط، نقوم بحقن جافاسكريبت لجلبها من LocalStorage وتحديث الصفحة الأب (Parent)
 if not client_device_id:
     st.components.v1.html("""
     <script>
@@ -45,14 +45,15 @@ if not client_device_id:
         deviceId = 'dev_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
         localStorage.setItem(STORAGE_KEY, deviceId);
     }
-    const url = new URL(window.location.href);
-    url.searchParams.set('device', deviceId);
-    window.location.href = url.toString();
+    // استخدام window.parent لتحديث الصفحة الرئيسية بالكامل وتجنب الشاشة البيضاء
+    if (window.parent.location.search.indexOf('device=') === -1) {
+        window.parent.location.search = '?device=' + deviceId;
+    }
     </script>
-    <div style="text-align:center; font-family:Cairo, sans-serif; padding: 50px; color:#1e3a8a;">
-        <h3>🔄 جاري التحقق من بصمة الجهاز الثابتة للمتصفح...</h3>
+    <div style="text-align:center; font-family:Cairo, sans-serif; padding: 30px; color:#1e3a8a;">
+        <h3>🔄 جاري تهيئة بصمة الجهاز الثابتة للمتصفح...</h3>
     </div>
-    """, height=200)
+    """, height=150)
     st.stop()
 
 # قراءة معاملات الرابط
