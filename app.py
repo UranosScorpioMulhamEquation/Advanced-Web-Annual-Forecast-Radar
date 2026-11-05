@@ -242,5 +242,5 @@ elif menu == "🔗 كشف سنوات الزواج و صفات الشريك ال�
     with open("subpages/mrg.py", encoding="utf-8") as f:
         exec(f.read())
 elif menu == "🌌 نظريتي لكشف سنوات التغيير أفراد/دول":
-    with open("subpages/nhe.py", encoding="utf-8]) as f:
+    with open("subpages/nhe.py", encoding="utf-8") as f:
         exec(f.read())
