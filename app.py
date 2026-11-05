@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import uuid
 from supabase import create_client, Client
 
 # 1. إعدادات الصفحة الأساسية
@@ -33,17 +32,34 @@ def generate_password(customer_id):
     num = int(digits) if digits else int(customer_id.encode().hex(), 16)
     return str(round(abs(num / 2 * 3.14)))[:6]
 
-# 🛡️ توليد بصمة جهاز ثابتة وفورية في الرابط عبر بايثون (بدون أي انتظار أو أخطاء جافاسكريبت)
-if "device" not in st.query_params or not st.query_params["device"]:
-    st.query_params["device"] = "dev_" + uuid.uuid4().hex[:12]
-    st.rerun()
-
-# قراءة بصمة الجهاز ومعاملات الرابط بوضوح
+# 🌐 جلب بصمة المتصفح الثابتة من رابط الـ URL
 client_device_id = st.query_params.get("device", "")
+
+# إذا لم تكن البصمة موجودة في الرابط، نقوم بجلبها من ذاكرة المتصفح المحلية (LocalStorage) وضبط الرابط فوراً
+if not client_device_id:
+    st.components.v1.html("""
+    <script>
+    const STORAGE_KEY = 'astro_radar_persistent_device_id';
+    let deviceId = localStorage.getItem(STORAGE_KEY);
+    if (!deviceId) {
+        deviceId = 'dev_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        localStorage.setItem(STORAGE_KEY, deviceId);
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.set('device', deviceId);
+    window.location.href = url.toString();
+    </script>
+    <div style="text-align:center; font-family:Cairo, sans-serif; padding: 50px; color:#1e3a8a;">
+        <h3>🔄 جاري التحقق من بصمة الجهاز الثابتة للمتصفح...</h3>
+    </div>
+    """, height=200)
+    st.stop()
+
+# قراءة معاملات الرابط
 url_phone = st.query_params.get("phone", "")
 url_key = st.query_params.get("key", "")
 
-# 🔄 ميزة الدخول التلقائي (Auto-Login): التحقق من عمود device_id في السحابة بناءً على البصمة الحالية
+# 🔄 ميزة الدخول التلقائي (Auto-Login): إذا كانت بصمة المتصفح مسجلة مسبقاً في السحابة، افتح التطبيق مباشرة
 if not st.session_state['authenticated'] and client_device_id:
     if supabase is not None:
         try:
@@ -113,10 +129,6 @@ if not st.session_state['authenticated']:
             expected_pwd = generate_password(customer_id_input)
             
             if pwd_input == expected_pwd:
-                if not client_device_id:
-                    st.error("⚠️ خطأ في تهيئة الجهاز، يرجى تحديث الصفحة (F5) ومحاولة الدخول مجدداً.")
-                    st.stop()
-
                 if supabase is not None:
                     try:
                         res = supabase.table("licenses").select("*").eq("phone", customer_id_input).execute()
@@ -124,19 +136,15 @@ if not st.session_state['authenticated']:
                             customer = res.data[0]
                             registered_device = str(customer.get("device_id", "") or "").strip()
                             
-                            # إذا كان السجل يحتوي على device_id مسبقاً (غير فارغ)
                             if registered_device not in ["", "None", "nan", "EMPTY"]:
-                                # السماح بالدخول إذا كانت نفس بصمة الجهاز الحالية تطابق المسجلة في القاعدة
                                 if registered_device == client_device_id:
                                     st.session_state['authenticated'] = True
                                 else:
                                     st.error("⚠️ عذراً، هذا الرقم مسجل ومقفل بالفعل على جهاز مستخدم آخر ولا يمكن تشغيله يدوياً من مكان جديد.")
                                     st.stop()
                             else:
-                                # إذا كانت خانة device_id فارغة في القاعدة، نقوم بتحديثها ببصمة هذا الجهاز الحالية
                                 supabase.table("licenses").update({"device_id": client_device_id}).eq("phone", customer_id_input).execute()
                         else:
-                            # إذا لم يكن الرقم موجوداً نهائياً في الجدول، نضيفه مع بصمته
                             supabase.table("licenses").insert({
                                 "phone": customer_id_input,
                                 "key": pwd_input,
@@ -234,5 +242,5 @@ elif menu == "🔗 كشف سنوات الزواج و صفات الشريك ال�
     with open("subpages/mrg.py", encoding="utf-8") as f:
         exec(f.read())
 elif menu == "🌌 نظريتي لكشف سنوات التغيير أفراد/دول":
-    with open("subpages/nhe.py", encoding="utf-8") as f:
+    with open("subpages/nhe.py", encoding="utf-8]) as f:
         exec(f.read())
