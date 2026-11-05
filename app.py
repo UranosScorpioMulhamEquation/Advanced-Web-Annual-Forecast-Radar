@@ -1,11 +1,10 @@
 import streamlit as st
 import pandas as pd
-import uuid
 from supabase import create_client, Client
 
 # 1. إعدادات الصفحة الأساسية
 st.set_page_config(
-    page_title="المنظومة الفلكية المطورة",
+    page_title="المنظومة الفلكية المطورة - استرو رادار",
     page_icon="🪐",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -27,131 +26,66 @@ def init_supabase() -> Client:
 
 supabase = init_supabase()
 
-# دالة التوليد والتحقق الرياضي بناءً على رقم الهاتف كاملاً لتكون فريدة 100% لكل زبون
-def generate_password(customer_id):
-    digits = ''.join(filter(str.isdigit, customer_id))
-    num = int(digits) if digits else int(customer_id.encode().hex(), 16)
-    return str(round(abs(num / 2 * 3.14)))[:6]
+# قراءة معاملات الرابط
+query_params = st.query_params
+url_token = query_params.get("token", "")
 
-# 🛡️ توليد وتثبيت بصمة الجهاز في الرابط تلقائياً عبر بايثون (بدون جافاسكريبت وبدون شاشة بيضاء)
-if "device" not in st.query_params or not st.query_params["device"]:
-    st.query_params["device"] = "dev_" + uuid.uuid4().hex[:12]
-    st.rerun()
-
-# قراءة بصمة الجهاز ومعاملات الرابط
-client_device_id = st.query_params.get("device", "")
-url_phone = st.query_params.get("phone", "")
-url_key = st.query_params.get("key", "")
-
-# 🔄 ميزة الدخول التلقائي (Auto-Login): التحقق من عمود device_id في السحابة بناءً على بصمة الرابط الثابتة
-if not st.session_state['authenticated'] and client_device_id:
-    if supabase is not None:
-        try:
-            res = supabase.table("licenses").select("*").eq("device_id", client_device_id).execute()
-            if len(res.data) > 0:
-                st.session_state['authenticated'] = True
-        except Exception:
-            pass
-
-# 2. التحقق من صحة المفتاح ورقم الهاتف عبر الرابط المباشر
-if url_phone and url_key and client_device_id:
-    expected_pwd = generate_password(url_phone)
-    if url_key == expected_pwd:
-        if supabase is not None:
-            try:
-                response = supabase.table("licenses").select("*").eq("phone", url_phone).execute()
-                rows = response.data
-                if len(rows) > 0:
-                    customer = rows[0]
-                    registered_device = str(customer.get("device_id", "") or "").strip()
-                    
-                    if registered_device in ["", "None", "nan", "EMPTY"]:
-                        supabase.table("licenses").update({"device_id": client_device_id}).eq("phone", url_phone).execute()
-                        st.session_state['authenticated'] = True
-                    elif registered_device == client_device_id:
-                        st.session_state['authenticated'] = True
-                    else:
-                        st.markdown("""
-                        <div style="background-color: #fee2e2; border: 2px solid #ef4444; padding: 30px; border-radius: 12px; text-align: center; direction: rtl; margin-top: 50px;">
-                            <h2 style="color: #991b1b;">⚠️ تنبيه أمني صارم: ترخيص مقفل</h2>
-                            <p style="font-size: 18px; color: #7f1d1d;">عذراً، هذا الرقم مسجل ومقفل حصرياً على متصفح وجهاز مستخدم آخر ولا يمكن تشغيله من جهاز جديد.</p>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        st.stop()
-            except Exception:
-                pass
-
-        # تنظيف معاملات الرابط الحساسة والابقاء على بصمة الجهاز ثابتة في الـ URL
-        st.query_params.pop("phone", None)
-        st.query_params.pop("key", None)
-        st.rerun()
-
-# 3. شاشة الدخول والتفعيل (اليدوي)
+# 2. التحقق الأمني من التوكن المؤقت في حال لم يتم المصادقة بعد
 if not st.session_state['authenticated']:
-    
-    st.markdown("""
-    <style>
-    [data-testid="stSidebar"] {
-        display: none !important;
-    }
-    html, body, [class*="css"] {
-        direction: rtl;
-        text-align: right;
-        font-family: 'Cairo', Tahoma, sans-serif;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    st.markdown("<h2 style='text-align: center;'>🔑 تفعيل المنظومة الفلكية الخاصة بك</h2>", unsafe_allow_html=True)
-    st.info("الرجاء مراسلة المبرمج لمرة واحدة فقط على البريد الالكتروني - mulham81ahmed@gmail.com")
-    st.info("الرجاء إدخال رقم هاتفك ومفتاح التفعيل المستلم.")
-
-    customer_id_input = st.text_input("رقم الهاتف أو المعرّف الخاص بك (مثل 00971...):")
-    pwd_input = st.text_input("مفتاح التفعيل (Activation Key):", type="password")
-    
-    if st.button("تفعيل ودخول النظام"):
-        if customer_id_input and pwd_input:
-            expected_pwd = generate_password(customer_id_input)
+    if url_token and supabase is not None:
+        try:
+            # البحث عن السجل المطابق للتوكن في السحابة
+            response = supabase.table("licenses").select("*").eq("token", url_token).execute()
+            rows = response.data
             
-            if pwd_input == expected_pwd:
-                if supabase is not None:
-                    try:
-                        res = supabase.table("licenses").select("*").eq("phone", customer_id_input).execute()
-                        if len(res.data) > 0:
-                            customer = res.data[0]
-                            registered_device = str(customer.get("device_id", "") or "").strip()
-                            
-                            if registered_device not in ["", "None", "nan", "EMPTY"]:
-                                if registered_device == client_device_id:
-                                    st.session_state['authenticated'] = True
-                                else:
-                                    st.error("⚠️ عذراً، هذا الرقم مسجل ومقفل بالفعل على جهاز مستخدم آخر ولا يمكن تشغيله يدوياً من مكان جديد.")
-                                    st.stop()
-                            else:
-                                supabase.table("licenses").update({"device_id": client_device_id}).eq("phone", customer_id_input).execute()
-                        else:
-                            supabase.table("licenses").insert({
-                                "phone": customer_id_input,
-                                "key": pwd_input,
-                                "device_id": client_device_id
-                            }).execute()
-                    except Exception as e:
-                        st.error(f"خطأ في الاتصال بقاعدة البيانات: {e}")
-                        st.stop()
+            if len(rows) > 0:
+                customer = rows[0]
+                phone_num = customer.get("phone")
                 
-                st.success("تم التفعيل بنجاح! جاري دخول المنظومة...")
+                # مسح التوكن من القاعدة فوراً لمنع إعادة استخدام الرابط أو مشاركته
+                supabase.table("licenses").update({"token": None}).eq("phone", phone_num).execute()
+                
+                # توثيق الجلسة وفتح التطبيق
                 st.session_state['authenticated'] = True
-                st.query_params.pop("phone", None)
-                st.query_params.pop("key", None)
+                st.query_params.clear()
                 st.rerun()
             else:
-                st.error("مفتاح التفعيل غير صحيح لهذا المعرّف. تأكد من البيانات المرسلة لك.")
-        else:
-            st.warning("الرجاء إدخال المعرّف ومفتاح التفعيل معاً.")
-    st.stop()
+                # توكن وهمي أو تم استخدامه من قبل
+                st.markdown("""
+                <div style="background-color: #fee2e2; border: 2px solid #ef4444; padding: 40px; border-radius: 12px; text-align: center; direction: rtl; margin-top: 50px;">
+                    <h2 style="color: #991b1b;">⚠️ تنبيه أمني: رابط غير صالح أو منتهي الصلاحية</h2>
+                    <p style="font-size: 18px; color: #7f1d1d; margin-top: 15px;">هذا الرابط تم استخدامه مسبقاً أو غير مصرح به.</p>
+                    <p style="font-size: 16px; color: #6b7280;">الرجاء تشغيل ملف التفعيل الخاص بك (launcher.bat) لفتح المنظومة.</p>
+                </div>
+                """, unsafe_allow_html=True)
+                st.stop()
+        except Exception as e:
+            st.error(f"حدث خطأ أثناء التحقق من الأمان: {e}")
+            st.stop()
+    else:
+        # في حال فتح الرابط العام مباشرة بدون ملف التفعيل
+        st.markdown("""
+        <style>
+        [data-testid="stSidebar"] { display: none !important; }
+        html, body, [class*="css"] {
+            direction: rtl;
+            text-align: right;
+            font-family: 'Cairo', Tahoma, sans-serif;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        st.markdown("""
+        <div style="background-color: #fef3c7; border: 2px solid #f59e0b; padding: 40px; border-radius: 12px; text-align: center; direction: rtl; margin-top: 50px;">
+            <h2 style="color: #b45309;">🔒 وصول غير مصرح به</h2>
+            <p style="font-size: 18px; color: #92400e; margin-top: 15px;">لا يمكن تشغيل المنظومة الفلكية مباشرة عبر هذا الرابط العام.</p>
+            <p style="font-size: 16px; color: #78350f;">الرجاء تشغيل ملف التفعيل الخاص بك (launcher.bat) للوصول إلى البرنامج.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        st.stop()
 
 # ==========================================================
-# 🚀 [التطبيق الرئيسي الموحد]
+# 🚀 [التطبيق الرئيسي الموحد - يعمل فقط بعد نجاح المصادقة الأمنية]
 # ==========================================================
 
 st.markdown("""
@@ -179,8 +113,8 @@ html, body, [class*="css"] {
 </style>
 """, unsafe_allow_html=True)
 
-# القائمة الجانبية لتنقل المستخدم
-st.sidebar.title("🪐 المنظومة الفلكية")
+# القائمة الجانبية للمنظومة الفلكية
+st.sidebar.title("🪐 منظومة استرو رادار")
 menu = st.sidebar.radio("اختر البرنامج:", [
     "🏠 الرئيسية",
     "📊 مصفوفة القدر للأفراد",
