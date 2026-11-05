@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import uuid
 from supabase import create_client, Client
 
 # 1. إعدادات الصفحة الأساسية
@@ -27,65 +26,72 @@ def init_supabase() -> Client:
 
 supabase = init_supabase()
 
-# دالة التوليد والتحقق الرياضي بناءً على رقم الهاتف كاملاً لتكون فريدة 100%
+# دالة التوليد والتحقق الرياضي بناءً على رقم الهاتف كاملاً لتكون فريدة 100% لكل زبون
 def generate_password(customer_id):
     digits = ''.join(filter(str.isdigit, customer_id))
     num = int(digits) if digits else int(customer_id.encode().hex(), 16)
     return str(round(abs(num / 2 * 3.14)))[:6]
 
+# دالة جلب عنوان الـ IP الحقيقي للزائر (سواء لابتوب أو موبايل)
+def get_client_ip():
+    try:
+        headers = st.context.headers
+        # استخراج الـ IP من ترويسات الشبكة أو الـ Proxy
+        ip = headers.get("X-Forwarded-For", "").split(",")[0].strip()
+        if not ip:
+            ip = headers.get("X-Real-Ip", "Unknown_IP")
+        return ip
+    except Exception:
+        return "Unknown_IP"
+
 # قراءة معاملات الرابط
 query_params = st.query_params
 url_phone = query_params.get("phone", "")
 url_key = query_params.get("key", "")
-url_device = query_params.get("device", "")
 
-# 2. التحقق من صحة المفتاح وقفل الجهاز سحابياً عبر Supabase (عبر الرابط المباشر)
+current_ip = get_client_ip()
+
+# 2. التحقق من صحة المفتاح عبر الرابط المباشر مع فحص الـ IP الثابت
 if url_phone and url_key:
     expected_pwd = generate_password(url_phone)
     if url_key == expected_pwd:
-        
-        if not url_device:
-            new_device_id = uuid.uuid4().hex[:12]
-            st.query_params["phone"] = url_phone
-            st.query_params["key"] = url_key
-            st.query_params["device"] = new_device_id
-            st.rerun()
-        else:
-            if supabase is not None:
-                try:
-                    response = supabase.table("licenses").select("*").eq("phone", url_phone).execute()
-                    rows = response.data
+        if supabase is not None:
+            try:
+                response = supabase.table("licenses").select("*").eq("phone", url_phone).execute()
+                rows = response.data
+                if len(rows) > 0:
+                    customer = rows[0]
+                    registered_device = str(customer.get("device_id", "") or "").strip()
                     
-                    if len(rows) > 0:
-                        customer = rows[0]
-                        registered_device = str(customer.get("device_id", "") or "").strip()
-                        
-                        if registered_device in ["", "None", "nan", "EMPTY"]:
-                            supabase.table("licenses").update({"device_id": url_device}).eq("phone", url_phone).execute()
-                            st.session_state['authenticated'] = True
-                        elif registered_device == url_device:
-                            st.session_state['authenticated'] = True
-                        else:
-                            st.markdown("""
-                            <div style="background-color: #fee2e2; border: 2px solid #ef4444; padding: 30px; border-radius: 12px; text-align: center; direction: rtl; margin-top: 50px;">
-                                <h2 style="color: #991b1b;">⚠️ تنبيه أمني: رابط غير مصرح به</h2>
-                                <p style="font-size: 18px; color: #7f1d1d;">عذراً، هذا الرابط مسجل ومقفل حصرياً على جهاز مستخدم آخر ولا يمكن تشغيله من أجهزة متعددة.</p>
-                                <p style="font-size: 14px; color: #6b7280;">إذا كنت تواجه مشكلة، يرجى مراسلة المبرمج لتحديث بيانات الترخيص الخاصة بك.</p>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            st.stop()
-                    else:
+                    # إذا كانت خانة الجهاز فارغة (أول دخوله) -> نربطها بالـ IP الحالي للأبد
+                    if registered_device in ["", "None", "nan", "EMPTY"]:
+                        supabase.table("licenses").update({"device_id": current_ip}).eq("phone", url_phone).execute()
                         st.session_state['authenticated'] = True
-                except Exception:
+                    elif registered_device == current_ip:
+                        # نفس الـ IP الأصلي (يعمل حتى لو حدث Refresh)
+                        st.session_state['authenticated'] = True
+                    else:
+                        # محاولة اختراق أو تشغيل من جهاز/شبكة مختلفة!
+                        st.markdown("""
+                        <div style="background-color: #fee2e2; border: 2px solid #ef4444; padding: 30px; border-radius: 12px; text-align: center; direction: rtl; margin-top: 50px;">
+                            <h2 style="color: #991b1b;">⚠️ تنبيه أمني صارم: ترخيص مقفل</h2>
+                            <p style="font-size: 18px; color: #7f1d1d;">عذراً، هذا الرقم مسجل ومقفل حصرياً على جهاز وزبون آخر ولا يمكن تشغيله من شبكة أو جهاز جديد.</p>
+                            <p style="font-size: 14px; color: #6b7280;">إذا كنت صاحب الحساب وتغيرت شبكتك، يرجى مراسلة المبرمج لتحديث بصمة جهازك.</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        st.stop()
+                else:
                     st.session_state['authenticated'] = True
-            else:
+            except Exception:
                 st.session_state['authenticated'] = True
+        else:
+            st.session_state['authenticated'] = True
 
         if st.session_state['authenticated']:
             st.query_params.clear()
             st.rerun()
 
-# 3. شاشة الدخول والتفعيل (اليدوي)
+# 3. شاشة الدخول والتفعيل (اليدوي - محمي بالكامل عبر الـ IP)
 if not st.session_state['authenticated']:
     
     st.markdown("""
@@ -113,8 +119,6 @@ if not st.session_state['authenticated']:
             expected_pwd = generate_password(customer_id_input)
             
             if pwd_input == expected_pwd:
-                
-                # 🔒 فحص أمني حاسم: التحقق هل الرقم مقفل مسبقاً على جهاز آخر في Supabase
                 if supabase is not None:
                     try:
                         res = supabase.table("licenses").select("*").eq("phone", customer_id_input).execute()
@@ -122,30 +126,25 @@ if not st.session_state['authenticated']:
                             customer = res.data[0]
                             registered_device = str(customer.get("device_id", "") or "").strip()
                             
-                            # إذا كان الجهاز مسجلاً مسبقاً وليس فارغاً -> امنع الدخول فوراً!
+                            # فحص قفل الـ IP
                             if registered_device not in ["", "None", "nan", "EMPTY"]:
-                                st.error("⚠️ عذراً، هذا الرقم مسجل ومقفل بالفعل على جهاز آخر ولا يمكن تشغيله يدوياً من جهاز جديد.")
-                                st.stop()
-                    except Exception:
-                        pass
-
-                st.success("تم التفعيل بنجاح! جاري قفل الرابط على جهازك ودخول المنظومة...")
-                device_id = uuid.uuid4().hex[:12]
-                
-                if supabase is not None:
-                    try:
-                        res = supabase.table("licenses").select("*").eq("phone", customer_id_input).execute()
-                        if len(res.data) > 0:
-                            supabase.table("licenses").update({"device_id": device_id}).eq("phone", customer_id_input).execute()
+                                if registered_device != current_ip:
+                                    st.error("⚠️ عذراً، هذا الرقم مسجل ومقفل بالفعل على جهاز/شبكة مستخدم آخر ولا يمكن تشغيله يدوياً من مكان جديد.")
+                                    st.stop()
+                            else:
+                                # إذا لم يكن مسجلاً من قبل، نقوم بتسجيل الـ IP الحالي
+                                supabase.table("licenses").update({"device_id": current_ip}).eq("phone", customer_id_input).execute()
                         else:
+                            # إدخال جديد إذا لم يكن موجوداً
                             supabase.table("licenses").insert({
                                 "phone": customer_id_input,
                                 "key": pwd_input,
-                                "device_id": device_id
+                                "device_id": current_ip
                             }).execute()
-                    except Exception:
+                    except Exception as e:
                         pass
                 
+                st.success("تم التفعيل بنجاح! جاري دخول المنظومة...")
                 st.session_state['authenticated'] = True
                 st.query_params.clear()
                 st.rerun()
@@ -156,7 +155,7 @@ if not st.session_state['authenticated']:
     st.stop()
 
 # ==========================================================
-# 🚀 [التطبيق الرئيسي الموحد - الوضع الافتراضي لستريملايت]
+# 🚀 [التطبيق الرئيسي الموحد]
 # ==========================================================
 
 st.markdown("""
@@ -184,7 +183,7 @@ html, body, [class*="css"] {
 </style>
 """, unsafe_allow_html=True)
 
-# القائمة الجانبية (بالوضع الافتراضي على اليسار وبشكل متوافق مع Streamlit تماماً)
+# القائمة الجانبية لتنقل المستخدم
 st.sidebar.title("🪐 المنظومة الفلكية")
 menu = st.sidebar.radio("اختر البرنامج:", [
     "🏠 الرئيسية",
