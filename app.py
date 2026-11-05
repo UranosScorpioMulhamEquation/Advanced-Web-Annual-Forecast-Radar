@@ -104,7 +104,7 @@ if not st.session_state['authenticated']:
     st.info("الرجاء مراسلة المبرمج لمرة واحدة فقط على البريد الالكتروني - mulham81ahmed@gmail.com")
     st.info("الرجاء إدخال رقم هاتفك ومفتاح التفعيل المستلم.")
 
-    customer_id_input = st.text_input("رقم الهاتف أو المعرّف الخاص بك (مثل 00971...):")
+    customer_id_input = st.text_input("رقم الهاتف أو المعرّف الخاص بك (مثل 12345678...):")
     pwd_input = st.text_input("مفتاح التفعيل (Activation Key):", type="password")
     
     if st.button("تفعيل ودخول النظام"):
