@@ -27,10 +27,10 @@ def init_supabase() -> Client:
 
 supabase = init_supabase()
 
-# دالة التوليد والتحقق الرياضي بناءً على رقم الهاتف
+# دالة التوليد والتحقق الرياضي بناءً على رقم الهاتف كاملاً لتكون فريدة 100%
 def generate_password(customer_id):
     digits = ''.join(filter(str.isdigit, customer_id))
-    num = int(digits[:8]) if digits else int(customer_id.encode().hex(), 16)
+    num = int(digits) if digits else int(customer_id.encode().hex(), 16)
     return str(round(abs(num / 2 * 3.14)))[:6]
 
 # قراءة معاملات الرابط
@@ -39,7 +39,7 @@ url_phone = query_params.get("phone", "")
 url_key = query_params.get("key", "")
 url_device = query_params.get("device", "")
 
-# 2. التحقق من صحة المفتاح وقفل الجهاز سحابياً عبر Supabase
+# 2. التحقق من صحة المفتاح وقفل الجهاز سحابياً عبر Supabase (عبر الرابط المباشر)
 if url_phone and url_key:
     expected_pwd = generate_password(url_phone)
     if url_key == expected_pwd:
@@ -85,7 +85,7 @@ if url_phone and url_key:
             st.query_params.clear()
             st.rerun()
 
-# 3. شاشة الدخول والتفعيل
+# 3. شاشة الدخول والتفعيل (اليدوي)
 if not st.session_state['authenticated']:
     
     st.markdown("""
@@ -113,6 +113,22 @@ if not st.session_state['authenticated']:
             expected_pwd = generate_password(customer_id_input)
             
             if pwd_input == expected_pwd:
+                
+                # 🔒 فحص أمني حاسم: التحقق هل الرقم مقفل مسبقاً على جهاز آخر في Supabase
+                if supabase is not None:
+                    try:
+                        res = supabase.table("licenses").select("*").eq("phone", customer_id_input).execute()
+                        if len(res.data) > 0:
+                            customer = res.data[0]
+                            registered_device = str(customer.get("device_id", "") or "").strip()
+                            
+                            # إذا كان الجهاز مسجلاً مسبقاً وليس فارغاً -> امنع الدخول فوراً!
+                            if registered_device not in ["", "None", "nan", "EMPTY"]:
+                                st.error("⚠️ عذراً، هذا الرقم مسجل ومقفل بالفعل على جهاز آخر ولا يمكن تشغيله يدوياً من جهاز جديد.")
+                                st.stop()
+                    except Exception:
+                        pass
+
                 st.success("تم التفعيل بنجاح! جاري قفل الرابط على جهازك ودخول المنظومة...")
                 device_id = uuid.uuid4().hex[:12]
                 
