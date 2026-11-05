@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import uuid
 from supabase import create_client, Client
 
 # 1. إعدادات الصفحة الأساسية
@@ -32,35 +33,17 @@ def generate_password(customer_id):
     num = int(digits) if digits else int(customer_id.encode().hex(), 16)
     return str(round(abs(num / 2 * 3.14)))[:6]
 
-# 🌐 جلب بصمة المتصفح الثابتة من رابط الـ URL
+# 🛡️ توليد وتثبيت بصمة الجهاز في الرابط تلقائياً عبر بايثون (بدون جافاسكريبت وبدون شاشة بيضاء)
+if "device" not in st.query_params or not st.query_params["device"]:
+    st.query_params["device"] = "dev_" + uuid.uuid4().hex[:12]
+    st.rerun()
+
+# قراءة بصمة الجهاز ومعاملات الرابط
 client_device_id = st.query_params.get("device", "")
-
-# إذا لم تكن البصمة موجودة في الرابط، نقوم بحقن جافاسكريبت لجلبها من LocalStorage وتحديث الصفحة الأب (Parent)
-if not client_device_id:
-    st.components.v1.html("""
-    <script>
-    const STORAGE_KEY = 'astro_radar_persistent_device_id';
-    let deviceId = localStorage.getItem(STORAGE_KEY);
-    if (!deviceId) {
-        deviceId = 'dev_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-        localStorage.setItem(STORAGE_KEY, deviceId);
-    }
-    // استخدام window.parent لتحديث الصفحة الرئيسية بالكامل وتجنب الشاشة البيضاء
-    if (window.parent.location.search.indexOf('device=') === -1) {
-        window.parent.location.search = '?device=' + deviceId;
-    }
-    </script>
-    <div style="text-align:center; font-family:Cairo, sans-serif; padding: 30px; color:#1e3a8a;">
-        <h3>🔄 جاري تهيئة بصمة الجهاز الثابتة للمتصفح...</h3>
-    </div>
-    """, height=150)
-    st.stop()
-
-# قراءة معاملات الرابط
 url_phone = st.query_params.get("phone", "")
 url_key = st.query_params.get("key", "")
 
-# 🔄 ميزة الدخول التلقائي (Auto-Login): إذا كانت بصمة المتصفح مسجلة مسبقاً في السحابة، افتح التطبيق مباشرة
+# 🔄 ميزة الدخول التلقائي (Auto-Login): التحقق من عمود device_id في السحابة بناءً على بصمة الرابط الثابتة
 if not st.session_state['authenticated'] and client_device_id:
     if supabase is not None:
         try:
@@ -98,6 +81,7 @@ if url_phone and url_key and client_device_id:
             except Exception:
                 pass
 
+        # تنظيف معاملات الرابط الحساسة والابقاء على بصمة الجهاز ثابتة في الـ URL
         st.query_params.pop("phone", None)
         st.query_params.pop("key", None)
         st.rerun()
@@ -122,7 +106,7 @@ if not st.session_state['authenticated']:
     st.info("الرجاء مراسلة المبرمج لمرة واحدة فقط على البريد الالكتروني - mulham81ahmed@gmail.com")
     st.info("الرجاء إدخال رقم هاتفك ومفتاح التفعيل المستلم.")
 
-    customer_id_input = st.text_input("رقم الهاتف أو المعرّف الخاص بك (مثل 123456789...):")
+    customer_id_input = st.text_input("رقم الهاتف أو المعرّف الخاص بك (مثل 00971...):")
     pwd_input = st.text_input("مفتاح التفعيل (Activation Key):", type="password")
     
     if st.button("تفعيل ودخول النظام"):
