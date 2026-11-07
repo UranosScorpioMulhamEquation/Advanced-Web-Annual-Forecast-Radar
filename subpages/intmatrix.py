@@ -23,7 +23,7 @@ if not os.path.exists(EPHE_PATH):
 swe.set_ephe_path(EPHE_PATH)
 
 st.title("النظام المتقدم لتحليل خارطة الحدث العاطفي 💖 (برمجة الفلكي استرو رادار)")
-st.markdown("تحليل فلكي دقيق وشامل يغطي دلالات الانفصال، الانسحاب، المشاجرات، والوقت المتوقع للرجوع مع تحكم كامل ودقيق بالوقت والتاريخ.")
+st.markdown("تحليل فلكي دقيق وشامل يغطي دلالات الانفصال، الانسحاب، المشاجرات، والوقت المتوقع للرجوع وفق الأصول الكلاسيكية المعتبرة.")
 st.markdown("---")
 
 # ==========================================
@@ -57,7 +57,7 @@ tf = get_tz_finder()
 def get_utc_julian_day(date_obj: date, time_obj: time, tz_str: str) -> float:
     local_tz = pytz.timezone(tz_str)
     dt = datetime.combine(date_obj, time_obj)
-    local_dt = local_tz.localize(dt)
+    local_dt = local_tz.localize(dt, is_dst=False)
     utc_dt = local_dt.astimezone(pytz.utc)
     return swe.julday(
         utc_dt.year,
@@ -67,7 +67,7 @@ def get_utc_julian_day(date_obj: date, time_obj: time, tz_str: str) -> float:
     )
 
 # ==========================================
-# القواميس الفلكية والكويكبات العاطفية
+# القواميس الفلكية والكويكبات العاطفية (بالمصطلحات الكلاسيكية)
 # ==========================================
 SIGN_NAMES = [
     "الحمل", "الثور", "الجوزاء", "السرطان", "الأسد", "العذراء",
@@ -75,10 +75,10 @@ SIGN_NAMES = [
 ]
 
 SIGN_MODALITY = {
-    "الحمل": "كاردينالي", "الثور": "ثابت", "الجوزاء": "متحرك",
-    "السرطان": "كاردينالي", "الأسد": "ثابت", "العذراء": "متحرك",
-    "الميزان": "كاردينالي", "العقرب": "ثابت", "القوس": "متحرك",
-    "الجدي": "كاردينالي", "الدلو": "ثابت", "الحوت": "متحرك"
+    "الحمل": "منقلب", "الثور": "ثابت", "الجوزاء": "ذو جسدين",
+    "السرطان": "منقلب", "الأسد": "ثابت", "العذراء": "ذو جسدين",
+    "الميزان": "منقلب", "العقرب": "ثابت", "القوس": "ذو جسدين",
+    "الجدي": "منقلب", "الدلو": "ثابت", "الحوت": "ذو جسدين"
 }
 
 RULERS = {
@@ -96,7 +96,7 @@ EVENT_TYPES = {
 }
 
 # ==========================================
-# الشريط الجانبي للإدخالات (مع تحكم دقيق بالساعات والدقائق)
+# الشريط الجانبي للإدخالات
 # ==========================================
 st.sidebar.header("⚙️ إعدادات حدث اللحظة العاطفية")
 
@@ -113,7 +113,6 @@ ev_date = st.sidebar.date_input(
     max_value=date(2100, 12, 31)
 )
 
-# استبدال time_input بحقول رقمية دقيقة تتيح اختيار أي دقيقة وثانية بحرية تامة
 st.sidebar.markdown("🕒 **وقت وقوع الحدث (المحلي):**")
 col_h, col_m, col_s = st.sidebar.columns(3)
 with col_h:
@@ -125,7 +124,8 @@ with col_s:
 
 ev_time = time(int(ev_hour), int(ev_minute), int(ev_second))
 
-selected_country_name = st.sidebar.selectbox("اختر الدولة:", country_list, index=country_list.index("United Arab Emirates") if "United Arab Emirates" in country_list else 0)
+default_country_idx = country_list.index("United Arab Emirates") if "United Arab Emirates" in country_list else 0
+selected_country_name = st.sidebar.selectbox("اختر الدولة:", country_list, index=default_country_idx)
 country_code = country_map[selected_country_name]
 
 country_cities = cities_by_country.get(country_code, [])
@@ -133,12 +133,10 @@ city_names = [c["name"] for c in country_cities]
 
 if city_names:
     selected_city_name = st.sidebar.selectbox("اختر المدينة:", city_names)
-    selected_city = next(c for c in country_cities if c["name"] == selected_city_name)
+    selected_city = next((c for c in country_cities if c["name"] == selected_city_name), country_cities[0])
     lat = float(selected_city["latitude"])
     lon = float(selected_city["longitude"])
-    tz_str = tf.timezone_at(lng=lon, lat=lat)
-    if not tz_str:
-        tz_str = "UTC"
+    tz_str = tf.timezone_at(lng=lon, lat=lat) or "UTC"
 else:
     lat = st.sidebar.number_input("خط العرض (Latitude):", value=25.2048, format="%.4f")
     lon = st.sidebar.number_input("خط الطول (Longitude):", value=55.2708, format="%.4f")
@@ -153,7 +151,7 @@ def get_sign_and_deg(lon_deg):
     sign_name = SIGN_NAMES[sign_idx % 12]
     return sign_name, deg_in_sign
 
-if st.button("🔮 تحليل خريطة الحدث العاطفي"):
+if st.button("🔮 تحليل خريطة الحدث العاطفي", type="primary"):
     try:
         jd = get_utc_julian_day(ev_date, ev_time, tz_str)
     except Exception as e:
@@ -237,7 +235,7 @@ if st.button("🔮 تحليل خريطة الحدث العاطفي"):
     desc_sign, _ = get_sign_and_deg(desc_cusp_lon)
     party2_ruler = RULERS[desc_sign]
 
-    st.success("✨ تم حساب الخريطة الفلكية وتوزيع البيوت بدقة تامة!")
+    st.success("✨ تم حساب الخريطة الفلكية وتوزيع البيوت بدقة تامة بنظام ريغومونتانوس!")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -255,9 +253,13 @@ if st.button("🔮 تحليل خريطة الحدث العاطفي"):
     st.markdown("---")
     st.markdown("### 🔬 محرك التشخيص الفلكي الدقيق للأسباب")
 
+    # ==========================================
+    # دالة محرك الاتصالات المتقدمة والدقيقة (Delta-Time)
+    # ==========================================
     def check_aspect(p1_name, p2_name):
         if p1_name not in planet_data or p2_name not in planet_data:
             return False, None, None, 0.0, None
+        
         lon1 = planet_data[p1_name]["lon"]
         lon2 = planet_data[p2_name]["lon"]
         speed1 = planet_data[p1_name]["speed"]
@@ -268,18 +270,26 @@ if st.button("🔮 تحليل خريطة الحدث العاطفي"):
             diff = 360 - diff
         
         aspects_def = [
-            ("اقتران (Conjunction)", 0, 5.0, "positive"),
-            ("تثليث (Trine)", 120, 5.0, "positive"),
-            ("تسديس (Sextile)", 60, 4.0, "positive"),
-            ("تربيع (Square)", 90, 5.0, "negative"),
-            ("مقابلة (Opposition)", 180, 5.0, "negative")
+            ("اقتران (Conjunction)", 0, 6.0, "positive"),
+            ("تثليث (Trine)", 120, 6.0, "positive"),
+            ("تسديس (Sextile)", 60, 5.0, "positive"),
+            ("تربيع (Square)", 90, 6.0, "negative"),
+            ("مقابلة (Opposition)", 180, 6.0, "negative")
         ]
         
-        for asp_name, target, max_orb, asp_type in aspects_def:
-            orb = abs(diff - target)
+        for asp_name, target_angle, max_orb, asp_type in aspects_def:
+            orb = abs(diff - target_angle)
             if orb <= max_orb:
-                is_applying = (lon1 < lon2 and speed1 > speed2) or (lon1 > lon2 and speed1 < speed2)
-                status = "Applying" if is_applying else "Separating"
+                # خوارزمية الدلتا الزمنية المضمونة 100% لتحديد Applying / Separating
+                dt = 0.01
+                f_lon1 = (lon1 + speed1 * dt) % 360
+                f_lon2 = (lon2 + speed2 * dt) % 360
+                f_diff = abs(f_lon1 - f_lon2) % 360
+                if f_diff > 180:
+                    f_diff = 360 - f_diff
+                f_orb = abs(f_diff - target_angle)
+
+                status = "Applying" if f_orb < orb else "Separating"
                 return True, asp_name, asp_type, orb, status
                 
         return False, None, None, 0.0, None
@@ -288,7 +298,7 @@ if st.button("🔮 تحليل خريطة الحدث العاطفي"):
     p2_name = party2_ruler
     
     has_aspect, asp_name, asp_type, asp_orb, asp_status = check_aspect(p1_name, p2_name)
-    _, moon_asp_name, moon_asp_type, moon_orb, moon_status = check_aspect("القمر", p2_name)
+    has_moon_asp, moon_asp_name, moon_asp_type, moon_orb, moon_status = check_aspect("القمر", p2_name)
 
     detailed_causes = []
 
@@ -380,7 +390,7 @@ if st.button("🔮 تحليل خريطة الحدث العاطفي"):
             can_return = True
             return_reasons.append(f"وجود اتصال إيجابي قادم ومنطبق ({asp_name}) بين حاكم الطالع وحاكم الشريك يمهد حتماً للصلح.")
 
-        if moon_asp_type == "positive" and moon_status == "Applying":
+        if has_moon_asp and moon_asp_type == "positive" and moon_status == "Applying":
             can_return = True
             return_reasons.append(f"القمر يصنع اتصالاً إيجابياً مقبلاً ({moon_asp_name}) مع حاكم الشريك، مما يسارع في تقريب وجهات النظر.")
 
@@ -390,17 +400,17 @@ if st.button("🔮 تحليل خريطة الحدث العاطفي"):
                 st.markdown(f"- {rr}")
 
             def calculate_precise_timing(orb_val, sign_name):
-                mod = SIGN_MODALITY.get(sign_name, "كاردينالي")
-                if mod == "كاردينالي":
+                mod = SIGN_MODALITY.get(sign_name, "منقلب")
+                if mod == "منقلب":
                     unit = "أيام (سريعة التطور)"
-                elif mod == "متحرك":
+                elif mod == "ذو جسدين":
                     unit = "أسابيع قليلة"
                 else:
                     unit = "أشهر (تطور بطيء ومتأني)"
                 days_est = max(1, int(orb_val * 1.5))
                 return f"حوالي {days_est} إلى {days_est + 3} {unit} (استناداً لدرجة الانطباخ Orb: {orb_val:.2f}°)"
 
-            target_orb = moon_orb if moon_status == "Applying" else asp_orb
+            target_orb = moon_orb if (has_moon_asp and moon_status == "Applying") else asp_orb
             timing_res = calculate_precise_timing(target_orb, planet_data["القمر"]["sign"])
             st.info(f"⏳ **الوقت المتوقع لعودة التواصل والصلح:** {timing_res}")
         else:
@@ -476,7 +486,7 @@ if st.button("🔮 تحليل خريطة الحدث العاطفي"):
     st.download_button(
         label="📥 تحميل التقرير الكامل المصحح (HTML)",
         data=html_content,
-        file_name=f"Expert_Corrected_Report_{ev_date}.html",
+        file_name=f"Expert_Correct_Report_{ev_date}.html",
         mime="text/html",
         use_container_width=True
     )
