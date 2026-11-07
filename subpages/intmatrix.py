@@ -190,7 +190,6 @@ if st.button("🔮 تحليل خريطة الحدث العاطفي"):
             "retro": res[3] < 0,
             "speed": res[3]
         }
-
     for a_name, a_id in asteroid_ids.items():
         try:
             res, _ = swe.calc_ut(jd, a_id, swe.FLG_SWIEPH | swe.FLG_SPEED)
