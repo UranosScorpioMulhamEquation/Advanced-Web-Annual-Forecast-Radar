@@ -15,7 +15,11 @@ import swisseph as swe
 from timezonefinder import TimezoneFinder
 # ==========================================
 # ==================== إعدادات Swiss Ephemeris ====================
-swe.set_ephe_path('')  # استخدام وضع Moshier الافتراضي للتقويم الفلكي الدقيق
+EPHE_PATH = "./ephe"
+if not os.path.exists(EPHE_PATH):
+    os.makedirs(EPHE_PATH)
+
+swe.set_ephe_path(EPHE_PATH)
 # ==========================================
 
 # ==============================================================================
