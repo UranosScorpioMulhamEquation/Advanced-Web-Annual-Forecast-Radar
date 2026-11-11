@@ -56,7 +56,7 @@ if not st.session_state['authenticated']:
                     <h2 style="color: #991b1b;">⚠️ تنبيه أمني: رابط غير صالح أو منتهي الصلاحية</h2>
                     <p style="font-size: 18px; color: #7f1d1d; margin-top: 15px;">هذا الرابط تم استخدامه مسبقاً أو غير مصرح به.</p>
                     <p style="font-size: 16px; color: #6b7280;">الرجاء تشغيل ملف التفعيل الخاص بك (launcher.bat) لفتح المنظومة.</p>
-                    <p style="font-size: 16px; color: #6b7280;">تنويه : المنظومة محمية بشهادة ملكية فكرية رقم 2026-4630.</p>
+                    <p style="font-size: 16px; color: #991b1b;">تنويه : المنظومة محمية بشهادة ملكية فكرية رقم 2026-4630.</p>
                 </div>
                 """, unsafe_allow_html=True)
                 st.stop()
@@ -81,7 +81,7 @@ if not st.session_state['authenticated']:
             <h2 style="color: #b45309;">🔒 وصول غير مصرح به</h2>
             <p style="font-size: 18px; color: #92400e; margin-top: 15px;">لا يمكن تشغيل المنظومة الفلكية مباشرة عبر هذا الرابط العام.</p>
             <p style="font-size: 16px; color: #78350f;">الرجاء تشغيل ملف التفعيل الخاص بك (launcher.bat) للوصول إلى البرنامج.</p>
-            <p style="font-size: 16px; color: #6b7280;">تنويه : المنظومة محمية بشهادة ملكية فكرية رقم 2026-4630.</p>
+            <p style="font-size: 16px; color: #991b1b;">تنويه : المنظومة محمية بشهادة ملكية فكرية رقم 2026-4630.</p>
 
         </div>
         """, unsafe_allow_html=True)
