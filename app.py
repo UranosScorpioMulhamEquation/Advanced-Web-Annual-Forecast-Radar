@@ -56,6 +56,7 @@ if not st.session_state['authenticated']:
                     <h2 style="color: #991b1b;">⚠️ تنبيه أمني: رابط غير صالح أو منتهي الصلاحية</h2>
                     <p style="font-size: 18px; color: #7f1d1d; margin-top: 15px;">هذا الرابط تم استخدامه مسبقاً أو غير مصرح به.</p>
                     <p style="font-size: 16px; color: #6b7280;">الرجاء تشغيل ملف التفعيل الخاص بك (launcher.bat) لفتح المنظومة.</p>
+                    <p style="font-size: 16px; color: #6b7280;">تنويه : المنظومة محمية بشهادة ملكية فكرية رقم 2026-4630.</p>
                 </div>
                 """, unsafe_allow_html=True)
                 st.stop()
