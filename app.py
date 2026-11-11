@@ -82,6 +82,20 @@ if not st.session_state['authenticated']:
             <p style="font-size: 16px; color: #78350f;">الرجاء تشغيل ملف التفعيل الخاص بك (launcher.bat) للوصول إلى البرنامج.</p>
         </div>
         """, unsafe_allow_html=True)
+        
+        # --- بوابة دخول المبرمج السرية من الهاتف ---
+        st.markdown("<br><hr><br>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.markdown("<h4 style='text-align: center; color: #4b5563;'>🛠️ بوابة دخول المبرمج</h4>", unsafe_allow_html=True)
+            admin_pass = st.text_input("أدخل كلمة مرور المبرمج السرية:", type="password", key="admin_secret_input")
+            if st.button("دخول المشرف", use_container_width=True):
+                if admin_pass == "astro@radar@1981":
+                    st.session_state['authenticated'] = True
+                    st.success("تم التحقق بنجاح! جاري فتح المنظومة...")
+                    st.rerun()
+                else:
+                    st.error("كلمة المرور غير صحيحة!")
         st.stop()
 
 # ==========================================================
