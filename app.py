@@ -90,7 +90,7 @@ if not st.session_state['authenticated']:
             st.markdown("<h4 style='text-align: center; color: #4b5563;'>🛠️ بوابة دخول المبرمج</h4>", unsafe_allow_html=True)
             admin_pass = st.text_input("أدخل كلمة مرور المبرمج السرية:", type="password", key="admin_secret_input")
             if st.button("دخول المشرف", use_container_width=True):
-                if admin_pass == "astro@radar@1981":
+                if admin_pass and admin_pass == st.secrets.get("ADMIN_PASSWORD"):
                     st.session_state['authenticated'] = True
                     st.success("تم التحقق بنجاح! جاري فتح المنظومة...")
                     st.rerun()
