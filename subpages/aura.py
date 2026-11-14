@@ -1,491 +1,629 @@
+from __future__ import annotations
+import html
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
+from typing import List, Tuple, Dict, Any
 import base64
-import datetime
-import numpy as np
-import pandas as pd
-import streamlit as st
-import swisseph as swe
-import os
+import traceback
 
-# ---------------------------------------------------------
-# إعدادات صفحة الستريملิต
-# ---------------------------------------------------------
+import geonamescache
+import libephemeris as swe
+from timezonefinder import TimezoneFinder
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+import os
+import streamlit as st
+
+# ==================== إعدادات الصفحة ودعم العربية (Streamlit) ====================
 st.set_page_config(
-    page_title="نظام التوافقية الفلكية المتقدم (التحليل الصارم للأطراف)",
+    page_title="نظام التوافقية الفلكية المتقدم والشامل",
     page_icon="✨",
     layout="wide",
 )
 
-# ==================== إعدادات Swiss Ephemeris ====================
-swe.set_ephe_path('')  # استخدام وضع Moshier الافتراضي للتقويم الفلكي الدقيق
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
+html, body, [class*="css"] {
+    direction: rtl;
+    text-align: right;
+    font-family: 'Cairo', sans-serif;
+}
+.stDownloadButton button {
+    background-color: #27ae60 !important;
+    color: white !important;
+    font-weight: bold;
+}
+.stButton button {
+    background-color: #6D28D9;
+    color: white;
+    font-weight: bold;
+}
+</style>
+""", unsafe_allow_html=True)
 
-# ---------------------------------------------------------
-# 1. القواميس الأساسية (الكواكب العشرة كاملة)
-# ---------------------------------------------------------
+# ==================== إعداد مسار التقويم الفلكي ====================
+APP_DIR = os.getcwd()
+try:
+    os.makedirs(APP_DIR, exist_ok=True)
+except Exception:
+    APP_DIR = os.getcwd()
+
+swe.set_ephe_path(APP_DIR)
+
+# ==================== الهياكل والبيانات الجغرافية ====================
+@dataclass
+class City:
+    geonameid: str
+    name: str
+    country_code: str
+    latitude: float
+    longitude: float
+    admin1: str
+    population: int
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+    
+    def get(self, key, default=None):
+        return getattr(self, key, default)
+
+@st.cache_data
+def load_cities():
+    gc = geonamescache.GeonamesCache()
+    cities_list = []
+    for city_id, city_data in gc.get_cities().items():
+        if city_data.get("population", 0) >= 15000:
+            cities_list.append(
+                City(
+                    geonameid=city_id,
+                    name=city_data.get("name", ""),
+                    country_code=city_data.get("countrycode", ""),
+                    latitude=city_data.get("latitude", 0.0),
+                    longitude=city_data.get("longitude", 0.0),
+                    admin1=city_data.get("admin1code", ""),
+                    population=city_data.get("population", 0),
+                )
+            )
+    return cities_list
+
+@st.cache_data
+def load_countries():
+    gc = geonamescache.GeonamesCache()
+    return gc.get_countries()
+
+def get_cities_by_country(country_code: str) -> list[City]:
+    cities = load_cities()
+    return sorted(
+        [c for c in cities if c.country_code == country_code],
+        key=lambda c: c.population,
+        reverse=True,
+    )
+
+def get_timezone_for_city(city: City) -> str | None:
+    try:
+        tf = TimezoneFinder()
+        return tf.timezone_at(lat=city.latitude, lng=city.longitude)
+    except Exception:
+        return None
+
+# ==================== الأجرام والكواكب الفلكية للتوافقية ====================
 PLANETS = {
-    swe.SUN: {"name": "الشمس", "type": "شخصي", "desc": "الهوية/الجوهر/الوعي"},
-    swe.MOON: {"name": "القمر", "type": "شخصي", "desc": "العاطفة/النفس/اللاوعي"},
-    swe.MERCURY: {"name": "عطارد", "type": "شخصي", "desc": "الفكر/التواصل/المنطق"},
-    swe.VENUS: {"name": "الزهرة", "type": "شخصي", "desc": "الحب/الانسجام/القيم"},
-    swe.MARS: {"name": "المريخ", "type": "شخصي", "desc": "الطاقة/الدافع/الحماسة"},
-    swe.JUPITER: {"name": "المشتري", "type": "اجتماعي", "desc": "الحظ/التوسع/الفرص"},
-    swe.SATURN: {"name": "زحل", "type": "اجتماعي", "desc": "الضغط/المسؤولية/القيود"},
-    swe.URANUS: {"name": "أورانوس", "type": "خارجي", "desc": "المفاجآت/التغيير/التمرد"},
-    swe.NEPTUNE: {"name": "نبتون", "type": "خارجي", "desc": "الخيال/الوهم/الروحانية"},
-    swe.PLUTO: {"name": "بلوتو", "type": "خارجي", "desc": "التحول/السيطرة/العمق"},
+    swe.SUN: {"name": "الشمس", "type": "شخصي", "desc": "الهوية والجوهر والوعي الأساسي"},
+    swe.MOON: {"name": "القمر", "type": "شخصي", "desc": "العاطفة، المزاج، والاحتياجات النفسية"},
+    swe.MERCURY: {"name": "عطارد", "type": "شخصي", "desc": "طريقة التفكير وأسلوب التبادل والاتصال"},
+    swe.VENUS: {"name": "الزهرة", "type": "شخصي", "desc": "الحب، الانسجام، العواطف، والقيم المالية"},
+    swe.MARS: {"name": "المريخ", "type": "شخصي", "desc": "الطاقة الجسدية، الحماسة، والدافع والغيرة"},
+    swe.JUPITER: {"name": "المشتري", "type": "اجتماعي", "desc": "الحظ، التوسع، التفاهم، والفرص المشتركة"},
+    swe.SATURN: {"name": "زحل", "type": "اجتماعي", "desc": "المسؤولية، الالتزام، القيود، ومصادر الضغط"},
+    swe.URANUS: {"name": "أورانوس", "type": "خارجي", "desc": "المفاجآت، التمرد، والحاجة للحرية"},
+    swe.NEPTUNE: {"name": "نبتون", "type": "خارجي", "desc": "الخيال، الرومانسية العليا، الوهم، أو الروحانية"},
+    swe.PLUTO: {"name": "بلوتو", "type": "خارجي", "desc": "التحول الجذري، السيطرة، والعمق العاطفي"},
+    swe.TRUE_NODE: {"name": "العقدة الشمالية (راهو)", "type": "روحي", "desc": "المسار القدري وقدر الارتباط المشترك"},
 }
 
-# ---------------------------------------------------------
-# 2. دوال الحسابات الفلكية وتحليل البيوت والتفسيرات الشاملة
-# ---------------------------------------------------------
-def get_planet_positions(year, month, day, hour=12.0):
-    jd = swe.julday(year, month, day, hour)
+ZODIAC_NAMES = [
+    "الحمل", "الثور", "الجوزاء", "السرطان",
+    "الأسد", "العذراء", "الميزان", "العقرب",
+    "القوس", "الجدي", "الدلو", "الحوت"
+]
+
+# ==================== الدوال الفلكية المتقدمة ====================
+def calculate_partner_chart(birth_date: date, birth_time_input, city: City | None):
+    is_unknown_time = (birth_time_input == "الساعة غير معروفة")
+    if is_unknown_time:
+        actual_time = time(12, 0)
+    elif isinstance(birth_time_input, str):
+        h, m = map(int, birth_time_input.split(":"))
+        actual_time = time(h, m)
+    else:
+        actual_time = birth_time_input
+
+    tz_name = get_timezone_for_city(city) if city else None
+    tz = ZoneInfo(tz_name) if tz_name else timezone.utc
+
+    local_dt = datetime.combine(birth_date, actual_time, tzinfo=tz)
+    utc_dt = local_dt.astimezone(timezone.utc)
+    jd_utc = swe.julday(utc_dt.year, utc_dt.month, utc_dt.day, utc_dt.hour + utc_dt.minute/60.0 + utc_dt.second/3600.0)
+
+    lat = city.latitude if city else 33.5138
+    lon = city.longitude if city else 36.2765
+
+    cusps, ascmc = swe.houses_ex(jd_utc, lat, lon, b'W')
+    asc_deg = ascmc[0]
+    asc_sign_idx = int(asc_deg // 30) % 12
+
+    house_system_name = "Whole Sign (كل برج بيت بناءً على الطالع الدقيق)"
+
+    if is_unknown_time:
+        sun_res, _ = swe.calc_ut(jd_utc, swe.SUN)
+        sun_lon = sun_res[0]
+        asc_deg = sun_lon
+        asc_sign_idx = int(sun_lon // 30) % 12
+        house_system_name = "Solar Sign (البيوت الشمسية الافتراضية لعدم دقة الوقت)"
+
     positions = {}
-    for p_id in PLANETS.keys():
+    for p_id, info in PLANETS.items():
         try:
-            res, _ = swe.calc_ut(jd, p_id)
-            positions[p_id] = res[0]
+            res, _ = swe.calc_ut(jd_utc, p_id)
+            p_lon = res[0]
+            speed = res[3]
+            sign_idx = int(p_lon // 30) % 12
+            deg_rem = p_lon % 30
+            house_num = ((sign_idx - asc_sign_idx) % 12) + 1
+
+            positions[p_id] = {
+                "lon": p_lon,
+                "sign_idx": sign_idx,
+                "sign_name": ZODIAC_NAMES[sign_idx],
+                "deg_rem": deg_rem,
+                "house": house_num,
+                "is_retro": speed < 0
+            }
         except Exception:
-            positions[p_id] = 0.0
-    return positions
+            pass
 
-def get_zodiac_sign(degrees):
-    signs = [
-        "الحمل", "الثور", "الجوزاء", "السرطان",
-        "الأسد", "العذراء", "الميزان", "العقرب",
-        "القوس", "الجدي", "الدلو", "الحوت"
-    ]
-    sign_index = int(degrees // 30) % 12
-    return signs[sign_index], sign_index + 1
-
-def get_solar_house(planet_deg, partner_sun_deg):
-    planet_sign = int(planet_deg // 30) % 12
-    partner_sun_sign = int(partner_sun_deg // 30) % 12
-    house = ((planet_sign - partner_sun_sign) % 12) + 1
-    return house
+    return {
+        "jd": jd_utc,
+        "asc_deg": asc_deg,
+        "asc_sign_idx": asc_sign_idx,
+        "asc_sign_name": ZODIAC_NAMES[asc_sign_idx],
+        "positions": positions,
+        "house_system": house_system_name
+    }
 
 def analyze_house_overlay(planet_id, planet_name, house_num, target_name):
     warning = None
-    effect_type = "neutral"
-    
     interpretations = {
         swe.SATURN: {
-            8: f"⚠️ **تحذير خطير:** زحل في البيت الثامن لـ {target_name} (ضغط مالي، مخاوف عميقة، وثقل نفسي وموارد مشتركة مقيدة ومؤذية جداً).",
-            7: f"⚠️ **تنبيه:** زحل في البيت السابع لـ {target_name} (يفرض التزامات رسمية لكنه يسبّب بروداً عاطفياً وثقلاً في العلاقة).",
-            4: f"⚠️ **تنبيه:** زحل في البيت الرابع لـ {target_name} (ضغط عائلي وجفاف عاطفي وصعوبة في الاستقرار المعيشي).",
-            1: f"⚠️ **تنبيه:** زحل في البيت الأول لـ {target_name} (يفرض رقابة وثقلاً على شخصية وطاقة الشريك).",
+            8: f"⚠️ **تحذير خطير:** زحل لـ {planet_name} يقع في البيت الثامن لـ {target_name} (ضغط مالي، قيود على الموارد المشتركة، وثقل نفسي وعاطفي).",
+            7: f"⚠️ **تنبيه:** زحل يقع في البيت السابع لـ {target_name} (يفرض التزامات رسمية قاسية ولكنه يسبب بروداً وجفاءً عاطفياً).",
+            4: f"⚠️ **تنبيه:** زحل يقع في البيت الرابع لـ {target_name} (ضغط عائلي، جفاف معيشي، وصعوبة في الاستقرار المنزلي).",
+            1: f"⚠️ **تنبيه:** زحل يقع في البيت الأول لـ {target_name} (فرض رقابة وسلطة وتقليل من عفوية وحيوية الطرف الآخر).",
         },
         swe.PLUTO: {
-            8: f"🔥 **تنبيه شديد:** بلوتو في البيت الثامن لـ {target_name} (طاقة سيطرة، غيرة جارفة، وصراعات على السلطة وتحولات جذرية قاسية).",
-            7: f"🔥 **تنبيه:** بلوتو في البيت السابع لـ {target_name} (علاقة مكثفة جداً تحمل طابع السيطرة أو التحول الجذري العنيف).",
-            1: f"🔥 **تنبيه:** بلوتو في البيت الأول لـ {target_name} (تأثير مغناطيسي قوي لكنه قد يتحول إلى فرض سيطرة وهيمنة).",
+            8: f"🔥 **تنبيه شديد:** بلوتو يقع في البيت الثامن لـ {target_name} (طاقة سيطرة، غيرة جارفة، وصراعات على النفوذ وأزمات عميقة).",
+            7: f"🔥 **تنبيه:** بلوتو يقع في البيت السابع لـ {target_name} (علاقة مكثفة للغاية تحمل طابع الهيمنة أو التحولات العنيفة).",
+            1: f"🔥 **تنبيه:** بلوتو يقع في البيت الأول لـ {target_name} (تأثير مغناطيسي مهيمن قد يتحول لسيطرة خانقة إن لم يتم ضبطه).",
         },
         swe.MARS: {
-            8: f"⚡ **تنبيه:** المريخ في البيت الثامن لـ {target_name} (كيمياء وجاذبية جسدية هائلة، لكنه يثير احتكاكات ونزاعات حادة).",
-            1: f"⚡ **تنبيه:** المريخ في البيت الأول لـ {target_name} (طاقة عالية وتنافس أو اصطدام مباشر في المبادرات والآراء).",
-            7: f"⚡ **تنبيه:** المريخ في البيت السابع لـ {target_name} (شعلة جذب قوية قد تشتعل على شكل خلافات ونقاشات حادة متكررة).",
+            8: f"⚡ **تنبيه:** المريخ يقع في البيت الثامن لـ {target_name} (جذب جسدي وكيمياء عالية، يرافقها احتكاكات ونزاعات متكررة).",
+            1: f"⚡ **تنبيه:** المريخ يقع في البيت الأول لـ {target_name} (طاقة عالية، اصطدام مباشر في المبادرات والآراء وتهور في الحوار).",
+            7: f"⚡ **تنبيه:** المريخ يقع في البيت السابع لـ {target_name} (شعلة تنافس أو خلافات حادة ومباشرة تشتعل بسرعة).",
         }
     }
 
     if planet_id in interpretations and house_num in interpretations[planet_id]:
         warning = interpretations[planet_id][house_num]
-        effect_type = "conflict"
-    
+
     general_notes = {
         swe.SUN: f"يسلط ضوء الوعي والهوية على شؤون البيت {house_num} لـ {target_name}.",
-        swe.MOON: f"يثير مشاعر عميقة وتجاوباً وجدانياً في شؤون البيت {house_num} لـ {target_name}.",
-        swe.MERCURY: f"ينشط الحوار وتبادل الأفكار في شؤون البيت {house_num} لـ {target_name}.",
-        swe.VENUS: f"يجلب الانسجام والمودة والراحة في شؤون البيت {house_num} لـ {target_name}.",
-        swe.MARS: f"ينشط طاقة وحماسة في شؤون البيت {house_num} لـ {target_name}.",
-        swe.JUPITER: f"🌟 يجلب الحظ والتوسع والدعم في شؤون البيت {house_num} لـ {target_name}.",
-        swe.SATURN: f"يفرض مسؤوليات ودروساً جادة في شؤون البيت {house_num} لـ {target_name}.",
-        swe.URANUS: f"يجلب مفاجآت ورغبة في التحرر في شؤون البيت {house_num} لـ {target_name}.",
-        swe.NEPTUNE: f"يضفي مسحة خيالية أو غموضاً في شؤون البيت {house_num} لـ {target_name}.",
-        swe.PLUTO: f"يحدث تأثيراً عميقاً وتحولياً في شؤون البيت {house_num} لـ {target_name}."
+        swe.MOON: f"يثير عواطف عميقة وتجاوباً وجدانياً في شؤون البيت {house_num} لـ {target_name}.",
+        swe.MERCURY: f"ينشط الحوار وتبادل الأفكار الفكرية والتجارية في البيت {house_num} لـ {target_name}.",
+        swe.VENUS: f"يجلب الانسجام، المودة، الراحة، والبهجة لبيت {house_num} لـ {target_name}.",
+        swe.MARS: f"يحفز طاقة وحماسة وفي بعض الأحيان حدة في البيت {house_num} لـ {target_name}.",
+        swe.JUPITER: f"🌟 يجلب الحظ، التوسع، والدعم المادي والمعنوي في البيت {house_num} لـ {target_name}.",
+        swe.SATURN: f"يفرض دروساً ومسؤوليات جادة وهيكلة واضحة في البيت {house_num} لـ {target_name}.",
+        swe.URANUS: f"يجلب مفاجآت ورغبة في التجدد والكسر للروتين في البيت {house_num} لـ {target_name}.",
+        swe.NEPTUNE: f"يضفي مسحة رومانسية خيالية أو غموضاً وشفافية في البيت {house_num} لـ {target_name}.",
+        swe.PLUTO: f"يحدث تأثيراً تحولياً وعميقاً في شؤون البيت {house_num} لـ {target_name}.",
+        swe.TRUE_NODE: f"يربط المسار القدري والروحي للشريك بشؤون البيت {house_num} لـ {target_name}."
     }
 
     note = warning if warning else general_notes.get(planet_id, f"تأثير في البيت {house_num} لـ {target_name}.")
-    return warning, effect_type, note
+    return warning, note
 
-def calculate_aspect(deg1, deg2, planet1_id, planet2_id):
-    diff = abs(deg1 - deg2)
+def calculate_aspect(lon1, lon2):
+    diff = abs(lon1 - lon2)
     if diff > 180:
         diff = 360 - diff
 
-    aspect_result = None
+    aspect_name = None
     score = 0
-    nature = "neutral"
 
     if diff <= 6:
-        aspect_result = "اقتران (دمج طاقات وتأثير مباشر)"
+        aspect_name = "اقتران (0° - دمج طاقات وتأثير مباشر)"
         score = +3
-        nature = "harmonious"
     elif abs(diff - 60) <= 6:
-        aspect_result = "تسديس (فرصة وتناغم سلس)"
+        aspect_name = "تسديس (60° - فرصة وتناغم سلس)"
         score = +2
-        nature = "harmonious"
     elif abs(diff - 90) <= 6:
-        aspect_result = "تربيع (تحدي واحتكاك ضاغط)"
+        aspect_name = "تربيع (90° - تحدي واحتكاك ضاغط)"
         score = -3
-        nature = "conflict"
     elif abs(diff - 120) <= 6:
-        aspect_result = "تثليث (تدفق وتوافق طبيعي عالي)"
+        aspect_name = "تثليث (120° - تدفق وتوافق طبيعي عالٍ)"
         score = +4
-        nature = "harmonious"
     elif abs(diff - 180) <= 6:
-        aspect_result = "معارضة (شد وجذب وتكامل أو صراع)"
+        aspect_name = "معارضة (180° - شد وجذب وتكامل أو صراع)"
         score = -2
-        nature = "conflict"
 
-    return aspect_result, score, nature
+    return aspect_name, score
 
-# ---------------------------------------------------------
-# 3. واجهة المستخدم الرئيسية (Streamlit UI)
-# ---------------------------------------------------------
-st.title("✨ النظام المطور للخرائط الفلكية التوافقية (التحديد الدقيق للمسؤوليات)")
-st.markdown("تطوير الخبير الفلكي: استرو رادار")
-st.markdown("تم اعتماد البرج الشمسي كبرج طالع")
+# ==================== واجهة المستخدم (Streamlit UI) ====================
+st.title("✨ النظام المطور للخرائط الفلكية التوافقية (التحديد الدقيق للمسؤوليات والطوالع)")
+st.markdown("تطوير الخبير الفلكي: استرو رادار | تحليل دقيق بالاعتماد على البيوت والاتصالات والأجرام الكاملة")
 st.markdown("---")
+
+countries = load_countries()
+country_options = sorted([(f"{c['name']} ({c['iso']})", c['iso']) for c in countries.values()], key=lambda x: x[0])
+country_display = [x[0] for x in country_options]
+country_codes = [x[1] for x in country_options]
+
+time_options = ["الساعة غير معروفة"] + [time(h, m).strftime('%H:%M') for h in range(24) for m in range(0, 60, 5)]
 
 col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("👤 بيانات الشريك الأول")
-    name1 = st.text_input("اسم الشريك الأول", "أحمد")
+    name1 = st.text_input("اسم الشريك الأول", "أحمد", key="n1")
     gender1 = st.selectbox("جنس الشريك الأول", ["ذكر", "أنثى"], index=0, key="g1")
-    dob1 = st.date_input("تاريخ ميلاد الشريك الأول", min_value=date(1950, 1, 1), max_value=date(2040, 1, 1), value=date(1990, 1, 1))
+    dob1 = st.date_input("تاريخ ميلاد الشريك الأول", min_value=date(1900, 1, 1), max_value=date(2100, 1, 1), value=date(1990, 1, 1), key="d1")
+    t1_select = st.selectbox("ساعة ميلاد الشريك الأول", time_options, index=time_options.index("12:00") if "12:00" in time_options else 0, key="t1")
+    
+    sy_idx = country_codes.index("SY") if "SY" in country_codes else 0
+    c1_display = st.selectbox("دولة ميلاد الشريك الأول", country_display, index=sy_idx, key="c1_disp")
+    c1_code = country_codes[country_display.index(c1_display)]
+    c1_cities = get_cities_by_country(c1_code)
+    c1_names = [c.name for c in c1_cities]
+    c1_name = st.selectbox("مدينة ميلاد الشريك الأول", c1_names if c1_names else ["غير متوفرة"], key="c1_name")
+    city1 = next((c for c in c1_cities if c.name == c1_name), None)
 
 with col2:
     st.subheader("❤️ بيانات الشريك الثاني")
-    name2 = st.text_input("اسم الشريك الثاني", "سارة")
+    name2 = st.text_input("اسم الشريك الثاني", "سارة", key="n2")
     gender2 = st.selectbox("جنس الشريك الثاني", ["أنثى", "ذكر"], index=0, key="g2")
-    dob2 = st.date_input("تاريخ ميلاد الشريك الثاني", min_value=date(1950, 1, 1), max_value=date(2040, 1, 1), value=date(1990, 1, 1))
+    dob2 = st.date_input("تاريخ ميلاد الشريك الثاني", min_value=date(1900, 1, 1), max_value=date(2100, 1, 1), value=date(1992, 5, 15), key="d2")
+    t2_select = st.selectbox("ساعة ميلاد الشريك الثاني", time_options, index=time_options.index("12:00") if "12:00" in time_options else 0, key="t2")
+    
+    ae_idx = country_codes.index("AE") if "AE" in country_codes else 0
+    c2_display = st.selectbox("دولة ميلاد الشريك الثاني", country_display, index=ae_idx, key="c2_disp")
+    c2_code = country_codes[country_display.index(c2_display)]
+    c2_cities = get_cities_by_country(c2_code)
+    c2_names = [c.name for c in c2_cities]
+    c2_name = st.selectbox("مدينة ميلاد الشريك الثاني", c2_names if c2_names else ["غير متوفرة"], key="c2_name")
+    city2 = next((c for c in c2_cities if c.name == c2_name), None)
 
-if st.button("🚀 تشغيل التحليل التوافقي الشامل وتحديد المسؤوليات بدقة", type="primary"):
-    with st.spinner("جاري حساب مواقع الكواكب، تفصيل المسؤوليات، وحساب النسب بدقة صارمة..."):
+st.markdown("---")
 
-        pos1 = get_planet_positions(dob1.year, dob1.month, dob1.day)
-        pos2 = get_planet_positions(dob2.year, dob2.month, dob2.day)
+if st.button("🚀 تشغيل التحليل التوافقي الشامل وتحديد المسؤوليات بدقة صارمة", type="primary", use_container_width=True):
+    with st.spinner("جاري حساب الطوالع الدقيقة، مواقع الأجرام، تراكب البيوت، وتحديد المسؤوليات بدقة صارمة..."):
+        try:
+            chart1 = calculate_partner_chart(dob1, t1_select, city1)
+            chart2 = calculate_partner_chart(dob2, t2_select, city2)
 
-        total_score = 0
-        aspect_records = []
-        overlay_records = []
-        warnings_list = []
-        marriage_support_score = 0
-        
-        # تتبعات دقيقة لكل طرف
-        p1_financial_score = 0
-        p2_financial_score = 0
-        p1_pressure_score = 0
-        p2_pressure_score = 0
-        p1_positive_hits = 0
-        p2_positive_hits = 0
-        
-        harmony_hits = 0
-        conflict_hits = 0
-        emotional_hits = 0
-        mental_hits = 0
-        hurt_hits = 0
+            total_score = 0
+            aspect_records = []
+            overlay_records = []
+            warnings_list = []
+            marriage_support_score = 0
 
-        seen_aspect_pairs = set()
+            p1_financial_score = 0
+            p2_financial_score = 0
+            p1_pressure_score = 0
+            p2_pressure_score = 0
+            p1_positive_hits = 0
+            p2_positive_hits = 0
 
-        # 1. حساب الاتصالات الفلكية
-        for p1, info1 in PLANETS.items():
-            for p2, info2 in PLANETS.items():
-                asp, sc, nat = calculate_aspect(pos1[p1], pos2[p2], p1, p2)
-                if asp:
-                    pair_key = tuple(sorted([info1["name"], info2["name"]]))
-                    
-                    if pair_key not in seen_aspect_pairs:
-                        seen_aspect_pairs.add(pair_key)
-                        total_score += sc
-                        
-                        if sc > 0:
-                            harmony_hits += 1
-                            p1_positive_hits += 1
-                            p2_positive_hits += 1
-                        else:
-                            conflict_hits += 1
+            harmony_hits = 0
+            conflict_hits = 0
+            emotional_hits = 0
+            mental_hits = 0
+            hurt_hits = 0
 
-                        # قياس الدعم المادي لكل طرف منفصلاً
-                        if p1 in [swe.SUN, swe.MARS] and sc > 0:
-                            p1_financial_score += sc
-                        if p2 in [swe.SUN, swe.MARS] and sc > 0:
-                            p2_financial_score += sc
+            seen_aspect_pairs = set()
 
-                        # قياس مصادر الضغط (زحل وبلوتو)
-                        if p1 in [swe.SATURN, swe.PLUTO] and sc < 0:
-                            p1_pressure_score += abs(sc)
-                        if p2 in [swe.SATURN, swe.PLUTO] and sc < 0:
-                            p2_pressure_score += abs(sc)
+            # 1. حساب الاتصالات الفلكية بين الخريطتين
+            for p1_id, p1_info in PLANETS.items():
+                if p1_id not in chart1["positions"]: continue
+                for p2_id, p2_info in PLANETS.items():
+                    if p2_id not in chart2["positions"]: continue
 
-                        if (p1 in [swe.VENUS, swe.MOON, swe.MARS] or p2 in [swe.VENUS, swe.MOON, swe.MARS]):
+                    lon1 = chart1["positions"][p1_id]["lon"]
+                    lon2 = chart2["positions"][p2_id]["lon"]
+                    asp, sc = calculate_aspect(lon1, lon2)
+
+                    if asp:
+                        pair_key = tuple(sorted([p1_info["name"], p2_info["name"]]))
+                        if pair_key not in seen_aspect_pairs:
+                            seen_aspect_pairs.add(pair_key)
+                            total_score += sc
+
                             if sc > 0:
-                                emotional_hits += 1
+                                harmony_hits += 1
+                                p1_positive_hits += 1
+                                p2_positive_hits += 1
                             else:
-                                hurt_hits += 1
+                                conflict_hits += 1
 
-                        if (p1 in [swe.MERCURY, swe.JUPITER, swe.SUN] or p2 in [swe.MERCURY, swe.JUPITER, swe.SUN]) and sc > 0:
-                            mental_hits += 1
+                            if p1_id in [swe.SUN, swe.MARS, swe.VENUS] and sc > 0:
+                                p1_financial_score += sc
+                            if p2_id in [swe.SUN, swe.MARS, swe.VENUS] and sc > 0:
+                                p2_financial_score += sc
 
-                        if (p1 in [swe.SUN, swe.MOON, swe.VENUS] and p2 in [swe.SUN, swe.MOON, swe.VENUS, swe.MARS]) and sc > 0:
-                            marriage_support_score += sc
+                            if p1_id in [swe.SATURN, swe.PLUTO] and sc < 0:
+                                p1_pressure_score += abs(sc)
+                            if p2_id in [swe.SATURN, swe.PLUTO] and sc < 0:
+                                p2_pressure_score += abs(sc)
 
-                        if sc < 0:
-                            if p1 == swe.MARS or p2 == swe.MARS:
-                                warnings_list.append(f"⚠️ صراعات حادة أو طاقة عدائية بسبب ارتباط ({info1['name']} و {info2['name']})")
-                            elif p1 == swe.VENUS or p2 == swe.VENUS:
-                                warnings_list.append(f"💔 جرح عاطفي أو إحباط وجداني بين ({info1['name']} و {info2['name']})")
-                            elif p1 == swe.SATURN or p2 == swe.SATURN:
-                                warnings_list.append(f"⚖️ ضغط زحلي يفرضه كوكب {info1['name'] if p1 in PLANETS else info2['name']} ويعيق المرونة")
+                            if p1_id in [swe.VENUS, swe.MOON, swe.MARS] or p2_id in [swe.VENUS, swe.MOON, swe.MARS]:
+                                if sc > 0: emotional_hits += 1
+                                else: hurt_hits += 1
 
-                        aspect_records.append({
-                            f"كوكب {name1}": info1["name"],
-                            "البرج": get_zodiac_sign(pos1[p1])[0],
-                            "الاتصال الفلكي": asp,
-                            f"كوكب {name2}": info2["name"],
-                            "برج الشريك": get_zodiac_sign(pos2[p2])[0],
-                            "نوع التأثير": "إيجابي (توافق)" if sc > 0 else "سلبي (تحدي)",
-                        })
+                            if p1_id in [swe.MERCURY, swe.JUPITER, swe.SUN] or p2_id in [swe.MERCURY, swe.JUPITER, swe.SUN]:
+                                if sc > 0: mental_hits += 1
 
-        # 2. تحليل البيوت (House Overlays)
-        sun_pos_1 = pos1[swe.SUN]
-        sun_pos_2 = pos2[swe.SUN]
+                            if p1_id in [swe.SUN, swe.MOON, swe.VENUS] and p2_id in [swe.SUN, swe.MOON, swe.VENUS, swe.MARS] and sc > 0:
+                                marriage_support_score += sc
 
-        for p1, info1 in PLANETS.items():
-            house_in_2 = get_solar_house(pos1[p1], sun_pos_2)
-            warn, eff, note = analyze_house_overlay(p1, info1["name"], house_in_2, name2)
-            if warn:
-                warnings_list.append(warn)
-                if p1 in [swe.SATURN, swe.PLUTO]:
-                    p1_pressure_score += 5
-            overlay_records.append({
-                "صاحب الكوكب": name1,
-                "الكوكب": info1["name"],
-                "يسقط في بيت الشريك": f"البيت {house_in_2}",
-                "الملاحظة والتأثير الفلكي": note
-            })
+                            if sc < 0:
+                                if p1_id == swe.MARS or p2_id == swe.MARS:
+                                    warnings_list.append(f"⚠️ صراعات حادة أو طاقة تنافسية بين كوكب ({p1_info['name']} لـ {name1}) و({p2_info['name']} لـ {name2})")
+                                elif p1_id == swe.VENUS or p2_id == swe.VENUS:
+                                    warnings_list.append(f"💔 جرح عاطفي أو إحباط وجداني بين ({p1_info['name']} و {p2_info['name']})")
+                                elif p1_id == swe.SATURN or p2_id == swe.SATURN:
+                                    warnings_list.append(f"⚖️ ضغط زحلي يعيق المرونة بين ({p1_info['name']} و {p2_info['name']})")
 
-        for p2, info2 in PLANETS.items():
-            house_in_1 = get_solar_house(pos2[p2], sun_pos_1)
-            warn, eff, note = analyze_house_overlay(p2, info2["name"], house_in_1, name1)
-            if warn:
-                warnings_list.append(warn)
-                if p2 in [swe.SATURN, swe.PLUTO]:
-                    p2_pressure_score += 5
-            overlay_records.append({
-                "صاحب الكوكب": name2,
-                "الكوكب": info2["name"],
-                "يسقط في بيت الشريك": f"البيت {house_in_1}",
-                "الملاحظة والتأثير الفلكي": note
-            })
+                            aspect_records.append({
+                                f"كوكب {name1}": p1_info["name"],
+                                "برج الطرف الأول": chart1["positions"][p1_id]["sign_name"],
+                                "الاتصال الفلكي": asp,
+                                f"كوكب {name2}": p2_info["name"],
+                                "برج الطرف الثاني": chart2["positions"][p2_id]["sign_name"],
+                                "نوع التأثير": "إيجابي (توافق ودعم)" if sc > 0 else "سلبي (تحدي وضغط)",
+                            })
 
-        # 3. تحديد المسؤوليات بدقة صارمة وبأسماء صريحة
-        # أ) تحديد الداعم المادي ونسبته
-        total_fin = p1_financial_score + p2_financial_score
-        if total_fin > 0:
-            p1_fin_pct = int((p1_financial_score / total_fin) * 100)
-            p2_fin_pct = int((p2_financial_score / total_fin) * 100)
-        else:
-            p1_fin_pct = 50
-            p2_fin_pct = 50
+            # 2. تحليل البيوت التوافقية (House Overlays)
+            for p1_id, p1_info in chart1["positions"].items():
+                h_num = p1_info["house"]
+                p_name = PLANETS[p1_id]["name"]
+                warn, note = analyze_house_overlay(p1_id, p_name, h_num, name2)
+                if warn:
+                    warnings_list.append(warn)
+                    if p1_id in [swe.SATURN, swe.PLUTO]: p1_pressure_score += 4
+                overlay_records.append({
+                    "صاحب الكوكب": name1,
+                    "الكوكب": p_name,
+                    "يسقط في بيت الشريك": f"البيت {h_num}",
+                    "التأثير الفلكي": note
+                })
 
-        if p1_financial_score > p2_financial_score:
-            material_supporter = f"{name1} (بنسبة مساهمة {p1_fin_pct}%)"
-            supporter_name_only = name1
-        elif p2_financial_score > p1_financial_score:
-            material_supporter = f"{name2} (بنسبة مساهمة {p2_fin_pct}%)"
-            supporter_name_only = name2
-        else:
-            material_supporter = f"مشترك بالتساوي بين {name1} و {name2} (50% لكل منهما)"
-            supporter_name_only = "الشريكان بالتساوي"
+            for p2_id, p2_info in chart2["positions"].items():
+                h_num = p2_info["house"]
+                p_name = PLANETS[p2_id]["name"]
+                warn, note = analyze_house_overlay(p2_id, p_name, h_num, name1)
+                if warn:
+                    warnings_list.append(warn)
+                    if p2_id in [swe.SATURN, swe.PLUTO]: p2_pressure_score += 4
+                overlay_records.append({
+                    "صاحب الكوكب": name2,
+                    "الكوكب": p_name,
+                    "يسقط في بيت الشريك": f"البيت {h_num}",
+                    "التأثير الفلكي": note
+                })
 
-        # ب) تحديد مصدر الضغط والمتضرر النفسي صراحة
-        if p1_pressure_score > p2_pressure_score:
-            pressure_source = name1
-            psych_sufferer = name2
-        elif p2_pressure_score > p1_pressure_score:
-            pressure_source = name2
-            psych_sufferer = name1
-        else:
-            pressure_source = f"متبادل بين {name1} و {name2}"
-            psych_sufferer = f"كلا الطرفين ({name1} و {name2})"
+            # 3. تحديد المسؤوليات والأطراف بوضوح
+            total_fin = p1_financial_score + p2_financial_score
+            if total_fin > 0:
+                p1_fin_pct = int((p1_financial_score / total_fin) * 100)
+                p2_fin_pct = int((p2_financial_score / total_fin) * 100)
+            else:
+                p1_fin_pct, p2_fin_pct = 50, 50
 
-        # ج) تحديد المستفيد والمتضرر العام
-        if total_score >= 10:
-            beneficiary = f"{name1} و {name2} (بشكل متوازن)"
-            sufferer = "لا يوجد طرف متضرر جوهرياً"
-        elif total_score >= 0:
-            beneficiary = name1 if p1_positive_hits >= p2_positive_hits else name2
-            sufferer = psych_sufferer
-        else:
-            beneficiary = "لا يوجد مستفيد (علاقة استنزافية)"
-            sufferer = f"الطرف الأكثر تضرراً هو {psych_sufferer} بسبب ثقل كواكب {pressure_source}"
+            if p1_financial_score > p2_financial_score:
+                material_supporter = f"{name1} (بنسبة مساهمة ودعم فلكي {p1_fin_pct}%)"
+            elif p2_financial_score > p1_financial_score:
+                material_supporter = f"{name2} (بنسبة مساهمة ودعم فلكي {p2_fin_pct}%)"
+            else:
+                material_supporter = f"مشترك بالتساوي بين {name1} و {name2} (50% لكل منهما)"
 
-        # د) المسؤول عن عدم دعم الأطفال
-        if p1_pressure_score > p2_pressure_score + 2:
-            children_blocker = f"{name1} (بسبب هيمنة كواكب الضغط والثقل الفلكي لديه)"
-        elif p2_pressure_score > p1_pressure_score + 2:
-            children_blocker = f"{name2} (بسبب هيمنة كواكب الضغط والثقل الفلكي لديه)"
-        else:
-            children_blocker = f"لا يوجد معيق فردي؛ المسؤولية مشتركة أو محايدة بين {name1} و {name2}"
+            if p1_pressure_score > p2_pressure_score:
+                pressure_source = name1
+                psych_sufferer = name2
+            elif p2_pressure_score > p1_pressure_score:
+                pressure_source = name2
+                psych_sufferer = name1
+            else:
+                pressure_source = f"متبادل بين {name1} و {name2}"
+                psych_sufferer = f"متوازن / كلاهما ({name1} و {name2})"
 
-        # 4. حساب النسب المئوية الدقيقة مع تحديد من المسؤول عن كل نسبة
-        total_aspects = max(1, (harmony_hits + conflict_hits))
-        comfort_pct = int(min(100, max(10, (harmony_hits / total_aspects) * 100 + (total_score * 2))))
-        emotional_pct = int(min(100, max(10, 50 + (emotional_hits * 6) - (hurt_hits * 8))))
-        happiness_pct = int(min(100, max(5, comfort_pct * 0.7 + (marriage_support_score * 2))))
-        conflict_pct = int(min(100, max(5, (conflict_hits / total_aspects) * 100 + ((p1_pressure_score + p2_pressure_score) * 2))))
-        hurt_pct = int(min(100, max(5, (hurt_hits / total_aspects) * 100 + ((p1_pressure_score + p2_pressure_score) * 1.5))))
-        mental_pct = int(min(100, max(15, (mental_hits / max(1, total_aspects)) * 100 + 30)))
-        continuity_pct = int(min(100, max(10, (comfort_pct + emotional_pct - conflict_pct) / 1.2)))
+            if total_score >= 12:
+                beneficiary = f"{name1} و {name2} (بشكل تبادلي ومتوازن)"
+            elif total_score >= 0:
+                beneficiary = name1 if p1_positive_hits >= p2_positive_hits else name2
+            else:
+                beneficiary = "لا يوجد مستفيد حقيقي (علاقة استنزافية متبادلة)"
 
-        driver_party = name1 if p1_positive_hits >= p2_positive_hits else name2
+            if p1_pressure_score > p2_pressure_score + 2:
+                children_blocker = f"{name1} (بسبب هيمنة الثقل وزحل في بيوت الاستقرار)"
+            elif p2_pressure_score > p1_pressure_score + 2:
+                children_blocker = f"{name2} (بسبب هيمنة الثقل وزحل في بيوت الاستقرار)"
+            else:
+                children_blocker = f"لا يوجد معيق فردي مباشر؛ المسؤولية مشتركة أو محايدة بين الطرفين"
 
-        relationship_verdict = ""
-        v_color = "green"
-        if total_score >= 15 and marriage_support_score >= 10:
-            relationship_verdict = f"💍 **تصلح بامتياز للزواج والاستقرار** بين {name1} و {name2}."
-        elif total_score >= 8:
-            relationship_verdict = f"🤝 **تصلح لصداقة أو زمالة عمل** وتحتاج وعياً مشتركاً."
-        elif 0 <= total_score < 8:
-            relationship_verdict = "⚖️ **علاقة متوسطة تتطلب جهداً شاقاً وتنازلات**."
-        else:
-            relationship_verdict = f"❌ **لا تصلح لشيء (تحذير صارم من الارتباط)** نظراً للاستنزاف العالي."
-            v_color = "red"
+            # 4. حساب المؤشرات والنسب المئوية
+            total_aspects = max(1, (harmony_hits + conflict_hits))
+            comfort_pct = int(min(100, max(10, (harmony_hits / total_aspects) * 100 + (total_score * 1.5))))
+            emotional_pct = int(min(100, max(10, 50 + (emotional_hits * 5) - (hurt_hits * 6))))
+            happiness_pct = int(min(100, max(5, comfort_pct * 0.75 + (marriage_support_score * 1.8))))
+            conflict_pct = int(min(100, max(5, (conflict_hits / total_aspects) * 100 + ((p1_pressure_score + p2_pressure_score) * 1.5))))
+            hurt_pct = int(min(100, max(5, (hurt_hits / total_aspects) * 100 + ((p1_pressure_score + p2_pressure_score) * 1.2))))
+            mental_pct = int(min(100, max(15, (mental_hits / max(1, total_aspects)) * 100 + 25)))
+            continuity_pct = int(min(100, max(10, (comfort_pct + emotional_pct - conflict_pct) / 1.15)))
 
-        # ---------------------------------------------------------
-        # 5. واجهة العرض والمخرجات في الـ UI
-        # ---------------------------------------------------------
-        st.markdown("---")
-        st.header("📊 التقرير التوافقي الشامل وتحديد المسؤوليات بدقة صارمة")
+            driver_party = name1 if p1_positive_hits >= p2_positive_hits else name2
 
-        col_res1, col_res2 = st.columns(2)
-        with col_res1:
-            st.markdown(f"### خلاصة العلاقة:")
-            st.markdown(f":{v_color}[{relationship_verdict}]")
-            st.markdown(f"**المجموع الحسابي للنقاط:** {total_score}")
-            st.markdown(f"**الشريك الداعم ماديّاً:** **{material_supporter}**")
-            st.markdown(f"**المستفيد الأساسي من العلاقة:** **{beneficiary}**")
+            relationship_verdict = ""
+            v_color = "green"
+            if total_score >= 15 and marriage_support_score >= 8:
+                relationship_verdict = f"💍 **علاقة ممتازة وتصلح بامتياز للزواج والاستقرار الدائم** بين {name1} و {name2}."
+            elif total_score >= 6:
+                relationship_verdict = f"🤝 **علاقة جيدة وتصلح للارتباط مع وجود تفاهم وتنازلات واعية**."
+            elif -2 <= total_score < 6:
+                relationship_verdict = f"⚖️ **علاقة متوسطة تتطلب جهداً شاقاً وإدارة حكيمة للخلافات**."
+            else:
+                relationship_verdict = f"❌ **علاقة شديدة الصعوبة (تحذير صارم من الارتباط)** نظراً لكثرة الضغوط والاستنزاف."
+                v_color = "red"
 
-        with col_res2:
-            st.markdown(f"**مصدر الضغط الهيكلي/الزحلي:** **{pressure_source}**")
-            st.markdown(f"**الطرف الأكثر تضرراً نفسياً:** **{psych_sufferer}**")
-            st.markdown(f"**المسؤول عن تعطيل أو ضعف دعم الأطفال:** **{children_blocker}**")
+            # ==================== عرض النتائج في واجهة الـ Streamlit ====================
+            st.markdown("---")
+            st.header("📊 التقرير التوافقي الشامل وتحديد المسؤوليات بدقة صارمة")
 
-        st.markdown("---")
-        st.subheader("📈 مؤشرات ونسب التوافق مع تسمية المسؤول عنها صراحةً")
-        
-        m_col1, m_col2, m_col3, m_col4 = st.columns(4)
-        m_col1.metric("الراحة النفسية", f"{comfort_pct}%", f"الداعم: {driver_party}")
-        m_col2.metric("الحميمية العاطفية", f"{emotional_pct}%", f"مشترك بين الطرفين")
-        m_col3.metric("نسبة السعادة", f"{happiness_pct}%", f"مرتبطة بتناغم {name1} و {name2}")
-        m_col4.metric("التفاهم العقلي", f"{mental_pct}%", f"محركها: {driver_party}")
+            col_res1, col_res2 = st.columns(2)
+            with col_res1:
+                st.markdown(f"### خلاصة العلاقة والقرار الفلكي:")
+                st.markdown(f":{v_color}[{relationship_verdict}]")
+                st.markdown(f"**المجموع الحسابي للنقاط:** {total_score}")
+                st.markdown(f"**الشريك الداعم ماديّاً واقتصادياً:** **{material_supporter}**")
+                st.markdown(f"**المستفيد الأساسي من العلاقة:** **{beneficiary}**")
+                st.markdown(f"**طالع الشريك الأول ({name1}):** {chart1['asc_sign_name']} | **طالع الشريك الثاني ({name2}):** {chart2['asc_sign_name']}")
 
-        m_col5, m_col6, m_col7 = st.columns(3)
-        m_col5.metric("نسبة الصراعات", f"{conflict_pct}%", f"المسؤول: {pressure_source}")
-        m_col6.metric("الجروح الحرمان", f"{hurt_pct}%", f"المتأثر: {psych_sufferer}")
-        m_col7.metric("نسبة الاستمرار", f"{continuity_pct}%", f"بناءً على ميزان القوى")
+            with col_res2:
+                st.markdown(f"**مصدر الضغط الهيكلي/الزحلي:** **{pressure_source}**")
+                st.markdown(f"**الطرف الأكثر تضرراً نفسياً:** **{psych_sufferer}**")
+                st.markdown(f"**المسؤول عن تعطيل الاستقرار أو دعم الأطفال:** **{children_blocker}**")
+                st.markdown(f"**نظام البيوت المعمد:** {chart1['house_system']}")
 
-        st.markdown("---")
-        st.subheader("⚠️ التنبيهات والتحذيرات الفلكية الهامة")
-        if warnings_list:
-            for w in set(warnings_list):
-                st.warning(w)
-        else:
-            st.success("لم يتم رصد تحذيرات خطيرة أو اتصالات هدامة قوية.")
+            st.markdown("---")
+            st.subheader("📈 مؤشرات ونسب التوافق مع تسمية المسؤول عنها صراحةً")
 
-        st.subheader("🏠 تحليل البيوت التوافقية (House Overlays)")
-        st.dataframe(pd.DataFrame(overlay_records), width='stretch')
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("الراحة النفسية", f"{comfort_pct}%", f"الداعم: {driver_party}")
+            m2.metric("الحميمية العاطفية", f"{emotional_pct}%", f"مشترك بين الطرفين")
+            m3.metric("نسبة السعادة", f"{happiness_pct}%", f"مرتبطة بتناغم الطرفين")
+            m4.metric("التفاهم العقلي", f"{mental_pct}%", f"المحرك: {driver_party}")
 
-        st.subheader("🔗 تفاصيل اتصالات الكواكب (بدون تكرار)")
-        df_aspects = pd.DataFrame(aspect_records) if aspect_records else pd.DataFrame(columns=["ملاحظة"])
-        st.dataframe(df_aspects, width='stretch')
+            m5, m6, m7 = st.columns(3)
+            m5.metric("نسبة الصراعات", f"{conflict_pct}%", f"المسؤول: {pressure_source}")
+            m6.metric("مؤشر الجروح والقيود", f"{hurt_pct}%", f"المتأثر: {psych_sufferer}")
+            m7.metric("نسبة الاستمرار", f"{continuity_pct}%", f"بناءً على ميزان القوى")
 
-        # ---------------------------------------------------------
-        # 6. تصدير وتنزيل التقرير HTML (شاملاً تفصيل المسؤوليات صراحةً)
-        # ---------------------------------------------------------
-        st.markdown("---")
-        st.subheader("🖨️ طباعة وتصدير التقرير النهائي")
+            st.markdown("---")
+            st.subheader("⚠️ التنبيهات والتحذيرات الفلكية الهامة")
+            if warnings_list:
+                for w in set(warnings_list):
+                    st.warning(w)
+            else:
+                st.success("لم يتم رصد تحذيرات خطيرة أو اتصالات هدامة قوية بين الخريطتين.")
 
-        aspects_html_rows = "".join([
-            f"<tr><td>{row.get(f'كوكب {name1}', '-')}</td><td>{row.get('البرج', '-')}</td><td><b>{row.get('الاتصال الفلكي', '-')}</b></td><td>{row.get(f'كوكب {name2}', '-')}</td><td>{row.get('برج الشريك', '-')}</td><td>{row.get('نوع التأثير', '-')}</td></tr>"
-            for _, row in df_aspects.iterrows()
-        ])
+            import pandas as pd
+            st.subheader("🏠 تحليل البيوت التوافقية (House Overlays - Whole Sign)")
+            st.dataframe(pd.DataFrame(overlay_records), use_container_width=True)
 
-        overlays_html_rows = "".join([
-            f"<tr><td>{row['صاحب الكوكب']}</td><td>{row['الكوكب']}</td><td>{row['يسقط في بيت الشريك']}</td><td>{row['الملاحظة والتأثير الفلكي']}</td></tr>"
-            for _, row in pd.DataFrame(overlay_records).iterrows()
-        ])
+            st.subheader("🔗 تفاصيل الاتصالات الفلكية بين الكواكب (بدون تكرار)")
+            df_aspects = pd.DataFrame(aspect_records) if aspect_records else pd.DataFrame(columns=["ملاحظة"])
+            st.dataframe(df_aspects, use_container_width=True)
 
-        warnings_html = "".join([f"<li>{w}</li>" for w in set(warnings_list)]) if warnings_list else "<li>لا توجد تحذيرات جوهرية مسجلة.</li>"
+            # ==================== بناء تقرير HTML المتكامل للطباعة والتحميل ====================
+            aspects_html_rows = "".join([
+                f"<tr><td>{row.get(f'كوكب {name1}', '-')}</td><td>{row.get('برج الطرف الأول', '-')}</td><td><b>{row.get('الاتصال الفلكي', '-')}</b></td><td>{row.get(f'كوكب {name2}', '-')}</td><td>{row.get('برج الطرف الثاني', '-')}</td><td>{row.get('نوع التأثير', '-')}</td></tr>"
+                for _, row in df_aspects.iterrows()
+            ])
 
-        html_report = f"""
-        <!DOCTYPE html>
-        <html lang="ar" dir="rtl">
-        <head>
-            <meta charset="UTF-8">
-            <title>التقرير الفلكي التوافقي الصارم - {name1} & {name2}</title>
-            <style>
-                body {{ font-family: Tahoma, Arial, sans-serif; margin: 40px; color: #333; background: #fff; line-height: 1.6; }}
-                h1, h2, h3 {{ color: #2c3e50; text-align: center; }}
-                .header-box {{ background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 20px; }}
-                .metrics-box {{ display: flex; justify-content: space-around; background: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; flex-wrap: wrap; }}
-                .metric-item {{ margin: 5px; font-size: 14px; }}
-                table {{ width: 100%; border-collapse: collapse; margin-top: 20px; margin-bottom: 30px; font-size: 14px; }}
-                th, td {{ border: 1px solid #bdc3c7; padding: 10px; text-align: center; }}
-                th {{ background: #2c3e50; color: white; }}
-                tr:nth-child(even) {{ background: #f9f9f9; }}
-                .footer {{ text-align: center; margin-top: 50px; font-size: 12px; color: #7f8c8d; border-top: 1px solid #eee; padding-top: 10px; }}
-                @media print {{ body {{ margin: 10px; }} .no-print {{ display: none; }} }}
-            </style>
-        </head>
-        <body>
-            <h1>✨ التقرير الفلكي التوافقي وتحديد الأطراف والمسؤوليات صراحةً</h1>
-            <div class="header-box">
-                <p><b>الشريك الأول:</b> {name1} ({gender1}) - تاريخ الميلاد: {dob1}</p>
-                <p><b>الشريك الثاني:</b> {name2} ({gender2}) - تاريخ الميلاد: {dob2}</p>
-                <p><b>خلاصة العلاقة والقرار:</b> {relationship_verdict}</p>
-                <p><b>الشريك الداعم ماديّاً:</b> <b>{material_supporter}</b></p>
-                <p><b>مصدر الضغط الهيكلي والزحلي:</b> <b>{pressure_source}</b> | <b>الطرف المتضرر نفسياً:</b> <b>{psych_sufferer}</b></p>
-                <p><b>المستفيد من العلاقة:</b> {beneficiary} | <b>المسؤول عن تعطيل الأطفال:</b> {children_blocker}</p>
-            </div>
+            overlays_html_rows = "".join([
+                f"<tr><td>{row['صاحب الكوكب']}</td><td>{row['الكوكب']}</td><td>{row['يسقط في بيت الشريك']}</td><td>{row['التأثير الفلكي']}</td></tr>"
+                for _, row in pd.DataFrame(overlay_records).iterrows()
+            ])
 
-            <div class="metrics-box">
-                <div class="metric-item"><b>الراحة النفسية:</b> {comfort_pct}% <br><small>الداعم: {driver_party}</small></div>
-                <div class="metric-item"><b>الحميمية:</b> {emotional_pct}% <br><small>مشترك</small></div>
-                <div class="metric-item"><b>السعادة:</b> {happiness_pct}% <br><small>مرتبط بالتناغم</small></div>
-                <div class="metric-item"><b>التفاهم العقلي:</b> {mental_pct}% <br><small>المحرك: {driver_party}</small></div>
-                <div class="metric-item"><b>الصراعات:</b> {conflict_pct}% <br><small>المسؤول: {pressure_source}</small></div>
-                <div class="metric-item"><b>الجروح العاطفية:</b> {hurt_pct}% <br><small>المتأثر: {psych_sufferer}</small></div>
-                <div class="metric-item"><b>الاستمرار:</b> {continuity_pct}% <br><small>حسب الميزان</small></div>
-            </div>
+            warnings_html = "".join([f"<li>{w}</li>" for w in set(warnings_list)]) if warnings_list else "<li>لا توجد تحذيرات جوهرية مسجلة.</li>"
 
-            <h2>⚠️ التنبيهات والتحذيرات الفلكية</h2>
-            <ul>{warnings_html}</ul>
+            html_report = f"""
+            <!DOCTYPE html>
+            <html lang="ar" dir="rtl">
+            <head>
+                <meta charset="UTF-8">
+                <title>التقرير الفلكي التوافقي الشامل - {name1} & {name2}</title>
+                <style>
+                    body {{ font-family: 'Cairo', Tahoma, Arial, sans-serif; margin: 40px; color: #2c3e50; background: #fdfdfd; line-height: 1.8; }}
+                    h1, h2, h3 {{ color: #1a252f; text-align: center; }}
+                    .header-box {{ background: #f8f9fa; padding: 25px; border-radius: 10px; border: 2px solid #cbd5e1; margin-bottom: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }}
+                    .metrics-box {{ display: flex; justify-content: space-around; background: #f1f5f9; padding: 20px; border-radius: 10px; margin-bottom: 25px; text-align: center; flex-wrap: wrap; border: 1px solid #e2e8f0; }}
+                    .metric-item {{ margin: 10px; font-size: 15px; min-width: 120px; }}
+                    table {{ width: 100%; border-collapse: collapse; margin-top: 20px; margin-bottom: 30px; font-size: 14px; background: white; }}
+                    th, td {{ border: 1px solid #cbd5e1; padding: 12px; text-align: center; }}
+                    th {{ background: #1e293b; color: white; }}
+                    tr:nth-child(even) {{ background: #f8fafc; }}
+                    .footer {{ text-align: center; margin-top: 50px; font-size: 13px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 15px; }}
+                    @media print {{ body {{ margin: 10px; background: white; }} .no-print {{ display: none; }} }}
+                </style>
+            </head>
+            <body>
+                <h1>✨ التقرير الفلكي التوافقي وتحديد الأطراف والمسؤوليات بدقة</h1>
+                
+                <div class="header-box">
+                    <p><b>الشريك الأول:</b> {name1} ({gender1}) | <b>تاريخ الميلاد:</b> {dob1} | <b>الطالع:</b> {chart1['asc_sign_name']}</p>
+                    <p><b>الشريك الثاني:</b> {name2} ({gender2}) | <b>تاريخ الميلاد:</b> {dob2} | <b>الطالع:</b> {chart2['asc_sign_name']}</p>
+                    <hr style="border: 0; border-top: 1px solid #cbd5e1; margin: 15px 0;">
+                    <p><b>خلاصة العلاقة والقرار:</b> {relationship_verdict}</p>
+                    <p><b>الشريك الداعم ماديّاً واقتصادياً:</b> <b>{material_supporter}</b></p>
+                    <p><b>مصدر الضغط الهيكلي والزحلي:</b> <b>{pressure_source}</b> | <b>الطرف المتضرر نفسياً:</b> <b>{psych_sufferer}</b></p>
+                    <p><b>المستفيد من العلاقة:</b> {beneficiary} | <b>المسؤول عن تعطيل الاستقرار:</b> {children_blocker}</p>
+                </div>
 
-            <h2>🏠 جدول تحليلات البيوت التوافقية (House Overlays)</h2>
-            <table>
-                <thead><tr><th>صاحب الكوكب</th><th>الكوكب</th><th>يسقط في بيت الشريك</th><th>طبيعة التأثير والتحذير</th></tr></thead>
-                <tbody>{overlays_html_rows}</tbody>
-            </table>
+                <div class="metrics-box">
+                    <div class="metric-item"><b>الراحة النفسية:</b> {comfort_pct}% <br><small>الداعم: {driver_party}</small></div>
+                    <div class="metric-item"><b>الحميمية:</b> {emotional_pct}% <br><small>مشترك</small></div>
+                    <div class="metric-item"><b>السعادة:</b> {happiness_pct}% <br><small>مرتبط بالتناغم</small></div>
+                    <div class="metric-item"><b>التفاهم العقلي:</b> {mental_pct}% <br><small>المحرك: {driver_party}</small></div>
+                    <div class="metric-item"><b>الصراعات:</b> {conflict_pct}% <br><small>المسؤول: {pressure_source}</small></div>
+                    <div class="metric-item"><b>الجروح والقيود:</b> {hurt_pct}% <br><small>المتأثر: {psych_sufferer}</small></div>
+                    <div class="metric-item"><b>الاستمرار:</b> {continuity_pct}% <br><small>حسب الميزان</small></div>
+                </div>
 
-            <h2>🔗 تفاصيل الاتصالات الفلكية (بدون تكرار)</h2>
-            <table>
-                <thead><tr><th>كوكب {name1}</th><th>البرج</th><th>الاتصال</th><th>كوكب {name2}</th><th>برج الشريك</th><th>التأثير</th></tr></thead>
-                <tbody>{aspects_html_rows}</tbody>
-            </table>
+                <h2>⚠️ التنبيهات والتحذيرات الفلكية</h2>
+                <ul style="line-height: 1.8; background: #fffbeb; padding: 20px 40px; border-radius: 8px; border: 1px solid #fef3c7;">{warnings_html}</ul>
 
-            <div class="footer"><p>تم إعداد التقرير عبر نظام الحسابات الفلكية المتقدم بالاعتماد على Swiss Ephemeris والبيوت الشمسية التوافقية.</p></div>
+                <h2>🏠 جدول تحليلات البيوت التوافقية (House Overlays)</h2>
+                <table>
+                    <thead><tr><th>صاحب الكوكب</th><th>الكوكب</th><th>يسقط في بيت الشريك</th><th>طبيعة التأثير والتحذير الفلكي</th></tr></thead>
+                    <tbody>{overlays_html_rows}</tbody>
+                </table>
 
-            <div style="text-align: center; margin-top: 30px;" class="no-print">
-                <button onclick="window.print()" style="padding: 12px 25px; background: #2980b9; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">🖨️ طباعة أو حفظ التقرير PDF</button>
-            </div>
-        </body>
-        </html>
-        """
+                <h2>🔗 تفاصيل الاتصالات الفلكية المباشرة (بدون تكرار)</h2>
+                <table>
+                    <thead><tr><th>كوكب {name1}</th><th>البرج</th><th>الاتصال الفلكي</th><th>كوكب {name2}</th><th>برج الطرف الثاني</th><th>نوع التأثير</th></tr></thead>
+                    <tbody>{aspects_html_rows}</tbody>
+                </table>
 
-        b64 = base64.b64encode(html_report.encode("utf-8")).decode("utf-8")
-        href = f'<a href="data:text/html;base64,{b64}" download="synastry_strict_parties_report.html" style="text-decoration: none;"><button style="padding: 10px 20px; background-color: #27ae60; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 15px;">📥 تنزيل تقرير HTML الشامل والمدقق</button></a>'
-        st.markdown(href, unsafe_allow_html=True)
-        st.success("تم تحديث الكود وتضمين أسماء المسؤولين عن كل نسبة وضغط ودعم مادي بشكل قاطع في واجهة المستخدم وتقرير الطباعة.")
+                <div class="footer">
+                    <p>تم إعداد هذا التقرير الاحترافي بالاعتماد على خوارزميات السويِس إيفيميريس (Swiss Ephemeris) ونظام البيوت الشامل (Whole Sign).</p>
+                </div>
+
+                <div style="text-align: center; margin-top: 30px;" class="no-print">
+                    <button onclick="window.print()" style="padding: 12px 25px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold;">🖨️ طباعة أو حفظ التقرير PDF</button>
+                </div>
+            </body>
+            </html>
+            """
+
+            st.markdown("---")
+            st.subheader("🖨️ تصدير وتحميل التقرير النهائي")
+            b64 = base64.b64encode(html_report.encode("utf-8")).decode("utf-8")
+            href = f'<a href="data:text/html;base64,{b64}" download="Synastry_Advanced_Report_{name1}_{name2}.html" style="text-decoration: none;"><button style="padding: 12px 25px; background-color: #16a34a; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold;">📥 تنزيل التقرير الكامل (HTML جاهز للطباعة والـ PDF)</button></a>'
+            st.markdown(href, unsafe_allow_html=True)
+            st.success("تم إتمام الحسابات الفلكية، تحديد الطوالع، وتوزيع المسؤوليات بدقة صارمة.")
+
+        except Exception as ex:
+            st.error(f"حدث خطأ أثناء الحسابات الفلكية: {ex}")
+            st.code(traceback.format_exc())
+
+if __name__ == "__main__":
+    pass
