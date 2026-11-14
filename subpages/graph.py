@@ -222,7 +222,7 @@ PLANET_DICTIONARY = {
 # 3. واجهة المستخدم الاحترافية (Streamlit UI)
 # ==========================================
 st.title("🌟 النظام المتقدم الشامل للأستروكارتوغرافيا المجالية")
-st.markdown("### المسح الفلكي الجغرافي العالمي مع تحديد مجالات الدعم (برمجة الفلكي استرو رادار)")
+st.markdown("### المسح الفلكي الجغرافي المعمق مع تحليل أفضل وأسوأ مدينة ودولة (برمجة الفلكي استرو رادار)")
 st.markdown("---")
 
 with st.sidebar:
@@ -256,24 +256,24 @@ with st.sidebar:
     
     st.markdown("---")
     st.header("🔍 نطاق ونوع البحث")
-    search_mode = st.radio("خيارات البحث الجغرافي", ["مسح عالمي شامل لكافة دول العالم (ترتيب أفضل وأسوأ الدول)", "البحث في دولة محددة فقط"])
+    search_mode = st.radio("خيارات البحث الجغرافي", ["مسح عالمي شامل لكافة دول العالم (ترتيب أفضل وأسوأ 25 دولة)", "البحث في دولة محددة فقط (عرض أفضل 25 مدينة)"])
     
     selected_target_country = None
-    if search_mode == "البحث في دولة محددة فقط":
+    if search_mode == "البحث في دولة محددة فقط (عرض أفضل 25 مدينة)":
         selected_target_country = st.selectbox("اختر الدولة المستهدفة للتحليل", sorted_country_names)
 
     st.markdown("---")
-    st.info("ℹ️ **الأوربت المعتمد:** تم ضبط الأوربت على **$3.0^\circ$** لضمان دقة وشمولية النتائج على مستوى الدول والمساحات الإقليمية الكبرى.")
+    st.info("ℹ️ **الأوربت المعتمد:** تم رفع الأوربت إلى **$6.0^\circ$** لضمان شمولية وتحليل أعمق للمساحات الكبرى والمدن.")
 
-    analyze_btn = st.button("🚀 بدء التحليل الفلكي الجغرافي المجالي", type="primary")
+    analyze_btn = st.button("🚀 بدء التحليل الفلكي الجغرافي المعمق", type="primary")
 
 # ==========================================
-# 4. محرك الحسابات الفلكية وتحليل أداء الدول
+# 4. محرك الحسابات الفلكية وتحليل أداء الدول والمدن
 # ==========================================
 if analyze_btn:
-    FIXED_ORB = 3.0  # تم اعتماده بناءً على المعيار الأدق لمسح الدول
+    FIXED_ORB = 6.0  # التحديث المطلوب: أوربت 6 درجات
     
-    with st.spinner("جاري إجراء الحسابات الفلكية وتحليل الأثر الكوكبي ومجالات الحياة على مدن وعواصم العالم..."):
+    with st.spinner("جاري إجراء الحسابات الفلكية المكثفة وتحليل الأثر الكوكبي ومجالات الحياة بدقة عالية..."):
         jd = get_utc_julian_day(birth_date, birth_time, tz_str)
         
         planets_to_calc = {
@@ -347,15 +347,18 @@ if analyze_btn:
                             "domains": domains
                         })
 
-        st.success("✨ تم إنجاز التحليل الفلكي الجغرافي المجالي بنجاح!")
+        st.success("✨ تم إنجاز التحليل الفلكي المعمق بنجاح!")
         st.markdown(f"## 🌍 تقرير الأستروكارتوغرافيا الشامل لـ: {name}")
-        st.markdown(f"**نطاق التأثير المعتمد (Orb):** **$3.0^\\circ$** (لتحقيق دقة فائقة على مستوى الدول)")
+        st.markdown(f"**نطاق التأثير المعتمد (Orb):** **$6.0^\circ$** | **عدد النتائج المستهدفة:** حتى 25 نتيجة")
 
         if selected_target_country:
-            st.markdown(f"### 📍 نتائج التحليل الخاص بـ: **{selected_target_country}**")
+            st.markdown(f"### 📍 نتائج التحليل المعمق لـ (أفضل 25 مدينة في): **{selected_target_country}**")
             if not raw_hits:
-                st.warning(f"⚠️ **منطقة محايدة فلكياً:** لا يمر أي خط كوكبي رئيسي ضمن النطاق المؤثر ($\\le 3.0^\\circ$) عبر مدن {selected_target_country}.")
+                st.warning(f"⚠️ **منطقة محايدة فلكياً:** لا يمر أي خط كوكبي رئيسي ضمن النطاق المؤثر ($\\le 6.0^\circ$) عبر مدن {selected_target_country}.")
             else:
+                # تصفية وترتيب أفضل 25 مدينة داخل الدولة المختارة
+                sorted_country_cities = sorted(raw_hits, key=lambda x: (0 if x["type"] == "benefic" else 1, x["orb"]))[:25]
+                
                 df_country = pd.DataFrame([{
                     "المدينة": h["city_name"],
                     "الكوكب": h["planet"],
@@ -363,11 +366,50 @@ if analyze_btn:
                     "البعد (Orb)": f"{h['orb']}°",
                     "نوع الدعم والمجالات": ", ".join(h["domains"]),
                     "نوع التأثير": "داعم/إيجابي" if h["type"] == "benefic" else "ضاغط/تحدي"
-                } for h in sorted(raw_hits, key=lambda x: x["orb"])])
+                } for h in sorted_country_cities])
                 st.dataframe(df_country, use_container_width=True)
 
-                st.markdown("#### التفاصيل التحليلية للمدن ومجالات الدعم المكتشفة:")
-                for hit in sorted(raw_hits, key=lambda x: x["orb"]):
+                # تحديد أفضل مدينة وأسوأ مدينة داخل الدولة المختارة مع السبب الفلكي
+                best_city_candidates = [h for h in raw_hits if h["type"] == "benefic"]
+                worst_city_candidates = [h for h in raw_hits if h["type"] == "malefic"]
+
+                best_city = min(best_city_candidates, key=lambda x: x["orb"]) if best_city_candidates else None
+                worst_city = min(worst_city_candidates, key=lambda x: x["orb"]) if worst_city_candidates else None
+
+                st.markdown("---")
+                st.markdown("### 💎 الخلاصة التحليلية: أفضل وأسوأ مدينة في الدولة المختارة")
+                
+                col_b, col_w = st.columns(2)
+                with col_b:
+                    if best_city:
+                        st.markdown(f"""
+                        <div style="background: #f1f9f5; border-right: 5px solid #27ae60; padding: 15px; border-radius: 6px;">
+                            <h4 style="color: #27ae60; margin-top:0;">🌟 أفضل مدينة: <b>{best_city['city_name']}</b></h4>
+                            <p><b>الكوكب المؤثر:</b> {best_city['planet']} على خط {best_city['angle']}</p>
+                            <p><b>نطاق الدقة (Orb):</b> {best_city['orb']}°</p>
+                            <p><b>مجالات الدعم:</b> {', '.join(best_city['domains'])}</p>
+                            <p><b>السبب الفلكي:</b> تقاطع كوكب سعد (مثل الشمس أو الزهرة أو المشتري) بدقة عالية يمنح طاقة تدفق وتوفيق في هذه المجالات دون عراقيل.</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.info("لا توجد مدينة ذات تأثير داعم رئيسي ضمن الأوربت.")
+
+                with col_w:
+                    if worst_city:
+                        st.markdown(f"""
+                        <div style="background: #fdf3f2; border-right: 5px solid #c0392b; padding: 15px; border-radius: 6px;">
+                            <h4 style="color: #c0392b; margin-top:0;">⚠️ أسوأ مدينة: <b>{worst_city['city_name']}</b></h4>
+                            <p><b>الكوكب المؤثر:</b> {worst_city['planet']} على خط {worst_city['angle']}</p>
+                            <p><b>نطاق الدقة (Orb):</b> {worst_city['orb']}°</p>
+                            <p><b>المجالات المتأثرة:</b> {', '.join(worst_city['domains'])}</p>
+                            <p><b>السبب الفلكي:</b> تأثير كوكب نحس أو ضاغط (مثل زحل أو المريخ) يولد اختبارات قاسية وضغوطاً مستمرة في هذه المجالات.</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.success("لا توجد مدن ذات تأثيرات ضاغطة سلبية حادة داخل الدولة ضمن الأوربت المحدد.")
+
+                st.markdown("#### تفاصيل المدن الـ 25 المكتشفة:")
+                for hit in sorted_country_cities:
                     box_color = "#27ae60" if hit["type"] == "benefic" else "#c0392b"
                     domains_str = " | ".join([f"✨ {d}" for d in hit['domains']])
                     st.markdown(f"""
@@ -391,10 +433,11 @@ if analyze_btn:
                     if c_name not in worst_countries_dict or hit["orb"] < worst_countries_dict[c_name]["orb"]:
                         worst_countries_dict[c_name] = hit
 
-            sorted_best_countries = sorted(list(best_countries_dict.values()), key=lambda x: x["orb"])[:15]
-            sorted_worst_countries = sorted(list(worst_countries_dict.values()), key=lambda x: x["orb"])[:15]
+            # التحديث المطلوب: السماح لـ 25 دولة بالظهور بالنتائج بدل 15
+            sorted_best_countries = sorted(list(best_countries_dict.values()), key=lambda x: x["orb"])[:25]
+            sorted_worst_countries = sorted(list(worst_countries_dict.values()), key=lambda x: x["orb"])[:25]
 
-            st.markdown("### 🏆 أفضل الدول الداعمة عالمياً (مع تحديد مجالات الدعم):")
+            st.markdown("### 🏆 أفضل 25 دولة داعمة عالمياً (مع تحديد مجالات الدعم):")
             if not sorted_best_countries:
                 st.warning("⚠️ لم يتم رصد تقاطعات داعمة قوية ضمن الأوربت المحدد عالمياً.")
             else:
@@ -409,7 +452,7 @@ if analyze_btn:
                 } for idx, h in enumerate(sorted_best_countries)])
                 st.dataframe(df_best_c, use_container_width=True)
 
-            st.markdown("### ⚠️ أكثر الدول ضغطاً واختباراً عالمياً:")
+            st.markdown("### ⚠️ أكثر 25 دولة ضغطاً واختباراً عالمياً:")
             if not sorted_worst_countries:
                 st.info("ℹ️ لم يتم رصد دول واقعة تحت تأثيرات ضاغطة لزحل والمريخ ضمن الأوربت المحدد عالمياً.")
             else:
@@ -424,13 +467,13 @@ if analyze_btn:
                 } for idx, h in enumerate(sorted_worst_countries)])
                 st.dataframe(df_worst_c, use_container_width=True)
 
-            # تجهيز التقرير الـ HTML الاحترافي والجذاب مع إدراج مجالات الدعم
+            # تجهيز التقرير الـ HTML الاحترافي والجذاب مع إدراج مجالات الدعم و 25 دولة
             html_content = f"""
             <!DOCTYPE html>
             <html lang="ar" dir="rtl">
             <head>
                 <meta charset="UTF-8">
-                <title>التقرير الفلكي العالمي المجالي للأستروكارتوغرافيا - {name}</title>
+                <title>التقرير الفلكي العالمي المجالي المعمق للأستروكارتوغرافيا - {name}</title>
                 <style>
                     body {{ font-family: 'Tahoma', sans-serif; margin: 40px; background: #f4f6f7; color: #2c3e50; line-height: 1.6; }}
                     .header {{ text-align: center; border-bottom: 3px solid #2c3e50; padding-bottom: 25px; background: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }}
@@ -444,12 +487,12 @@ if analyze_btn:
             </head>
             <body>
                 <div class="header">
-                    <h1>تقرير الأستروكارتوغرافيا العالمي المجالي (أوربت {FIXED_ORB}°)</h1>
+                    <h1>تقرير الأستروكارتوغرافيا العالمي المعمق (أوربت {FIXED_ORB}°)</h1>
                     <p>المستفيد: <strong>{name}</strong> | تاريخ الميلاد: {birth_date} ({birth_time})</p>
                 </div>
                 
                 <div class="section">
-                    <h2>🏆 أفضل الدول الداعمة عالمياً ومجالاتها</h2>
+                    <h2>🏆 أفضل 25 دولة داعمة عالمياً ومجالاتها</h2>
             """
             
             for idx, h in enumerate(sorted_best_countries):
@@ -466,7 +509,7 @@ if analyze_btn:
             html_content += """
                 </div>
                 <div class="section">
-                    <h2>⚠️ أكثر الدول ضغطاً واختباراً عالمياً</h2>
+                    <h2>⚠️ أكثر 25 دولة ضغطاً واختباراً عالمياً</h2>
             """
             
             for idx, h in enumerate(sorted_worst_countries):
@@ -491,6 +534,6 @@ if analyze_btn:
 
             st.markdown("---")
             b64_html = base64.b64encode(html_content.encode("utf-8")).decode("utf-8")
-            href = f'<a href="data:text/html;base64,{b64_html}" download="Global_Domain_AstroCartography_Report_{name.replace(" ", "_")}.html" style="text-decoration: none;"><button style="padding: 12px 25px; background-color: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold;">📥 تنزيل التقرير العالمي الكامل مجاملاً (HTML جاهز للطباعة والـ PDF)</button></a>'
+            href = f'<a href="data:text/html;base64,{b64_html}" download="Global_25_Deep_AstroCartography_Report_{name.replace(" ", "_")}.html" style="text-decoration: none;"><button style="padding: 12px 25px; background-color: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold;">📥 تنزيل التقرير العالمي الكامل لـ 25 دولة (HTML جاهز للطباعة والـ PDF)</button></a>'
             st.markdown(href, unsafe_allow_html=True)
-            st.success("🎉 تم توليد التقرير العالمي المجالي بنجاح وجاهز للتحميل والتصدير!")
+            st.success("🎉 تم توليد التقرير المعمق لـ 25 دولة بنجاح وجاهز للتحميل والتصدير!")
