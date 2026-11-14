@@ -1,6 +1,8 @@
 import datetime
 import os
+import base64
 from typing import Dict, List, Tuple, Any, Optional
+from dataclasses import dataclass
 
 import geonamescache
 import pandas as pd
@@ -9,15 +11,17 @@ import streamlit as st
 import swisseph as swe
 from timezonefinder import TimezoneFinder
 
-
-# ==================== إعدادات Swiss Ephemeris ====================
+# ==========================================
+# إعدادات تقويم سويس إفيميريس (Swiss Ephemeris)
+# ==========================================
 swe.set_ephe_path('')  # استخدام وضع Moshier الافتراضي للتقويم الفلكي الدقيق
 
 st.set_page_config(
-    page_title="النظام المتقدم للأستروكارتوغرافيا",
-    page_icon="✨",
+    page_title="النظام المتقدم الشامل للأستروكارتوغرافيا",
+    page_icon="🌟",
     layout="wide"
 )
+
 # ==========================================
 # دعم اللغة العربية والاتجاه من اليمين لليسار (RTL)
 # ==========================================
@@ -27,6 +31,7 @@ st.markdown(
     html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stSidebar"] {
         direction: rtl;
         text-align: right;
+        font-family: 'Tahoma', sans-serif;
     }
     .stSelectbox, .stTextInput, .stDateInput, .stTimeInput, .stButton, div[data-baseweb="select"], .stMarkdown, p, span, label, div {
         direction: rtl;
@@ -40,112 +45,60 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# قاموس ترجمة وحصر الدول المعتمدة حصرياً (الشرق الأوسط وشمال أفريقيا، أمريكا، كندا، أستراليا، بريطانيا وأوروبا)
-ARABIC_COUNTRIES = {
-    # الشرق الأوسط وشمال أفريقيا (MENA)
-    "United Arab Emirates": "الإمارات العربية المتحدة",
-    "Saudi Arabia": "المملكة العربية السعودية",
-    "Syria": "سوريا",
-    "Egypt": "مصر",
-    "Lebanon": "لبنان",
-    "Jordan": "الأردن",
-    "Iraq": "العراق",
-    "Kuwait": "الكويت",
-    "Qatar": "قطر",
-    "Bahrain": "البحرين",
-    "Oman": "سلطنة عمان",
-    "Yemen": "اليمن",
-    "Palestine": "فلسطين",
-    "Sudan": "السودان",
-    "Libya": "ليبيا",
-    "Tunisia": "تونس",
-    "Algeria": "الجزائر",
-    "Morocco": "المغرب",
-    
-    # أمريكا الشمالية وكندا
-    "United States": "الولايات المتحدة الأمريكية",
-    "Canada": "كندا",
-    
-    # أستراليا
-    "Australia": "أستراليا",
-    
-    # بريطانيا وأوروبا
-    "United Kingdom": "المملكة المتحدة (بريطانيا)",
-    "France": "فرنسا",
-    "Germany": "ألمانيا",
-    "Italy": "إيطاليا",
-    "Spain": "إسبانيا",
-    "Greece": "اليونان",
-    "Switzerland": "سويسرا",
-    "Sweden": "السويد",
-    "Netherlands": "هولندا",
-    "Belgium": "بلجيكا",
-    "Austria": "النمسا",
-    "Portugal": "البرتغال",
-    "Poland": "بولندا",
-    "Norway": "النرويج",
-    "Denmark": "الدنمارك",
-    "Finland": "فنلندا",
-    "Ireland": "أيرلندا",
-    "Czech Republic": "جمهورية التشيك",
-    "Hungary": "المجر",
-    "Romania": "رومانيا",
-    "Croatia": "كرواتيا",
-    "Slovakia": "سلوفاكيا",
-    "Slovenia": "سلوفينيا",
-    "Bulgaria": "بلغاريا",
-    "Serbia": "صربيا",
-    "Estonia": "إستونيا",
-    "Latvia": "لاتفيا",
-    "Lithuania": "ليتوانيا"
-}
-
-ALLOWED_COUNTRY_CODES = {
-    'AE', 'SA', 'SY', 'EG', 'LB', 'JO', 'IQ', 'KW', 'QA', 'BH', 'OM', 'YE', 'PS', 'SD', 'LY', 'TN', 'DZ', 'MA',
-    'US', 'CA', 'AU',
-    'GB', 'FR', 'DE', 'IT', 'ES', 'GR', 'CH', 'SE', 'NL', 'BE', 'AT', 'PT', 'PL', 'NO', 'DK', 'FI', 'IE', 'CZ', 'HU', 'RO', 'HR', 'SK', 'SI', 'BG', 'RS', 'EE', 'LV', 'LT'
-}
-
-def get_arabic_country_name(eng_name: str) -> str:
-    return ARABIC_COUNTRIES.get(eng_name, eng_name)
-
 # ==========================================
-# 1. خدمات البيانات الجغرافية والزمنية
+# 1. الهياكل والبيانات الجغرافية العالمية
 # ==========================================
+@dataclass
+class City:
+    geonameid: str
+    name: str
+    country_code: str
+    latitude: float
+    longitude: float
+    admin1: str
+    population: int
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+    
+    def get(self, key, default=None):
+        return getattr(self, key, default)
+
 @st.cache_data
-def load_geo_data() -> Tuple[geonamescache.GeonamesCache, Dict[str, str], List[str], Dict[str, List[Dict[str, Any]]], List[Dict[str, Any]]]:
+def load_cities() -> List[City]:
     gc = geonamescache.GeonamesCache()
-    countries = gc.get_countries()
-    cities = gc.get_cities()
+    cities_dict = gc.get_cities()
+    cities_list = []
+    for city_id, city_data in cities_dict.items():
+        if city_data.get("population", 0) >= 15000:
+            lat = city_data.get("latitude", 0.0)
+            lon = city_data.get("longitude", 0.0)
+            if -65.0 <= lat <= 65.0:  # استبعاد الأقطاب لضمان دقة خطوط الأوتاد
+                cities_list.append(
+                    City(
+                        geonameid=str(city_id),
+                        name=city_data.get("name", ""),
+                        country_code=city_data.get("countrycode", ""),
+                        latitude=lat,
+                        longitude=lon,
+                        admin1=city_data.get("admin1code", ""),
+                        population=city_data.get("population", 0),
+                    )
+                )
+    return cities_list
 
-    # حصر الخريطة والدول المتاحة فقط بالدول المسموحة ومترجمة للعربية
-    country_map = {get_arabic_country_name(c["name"]): code for code, c in countries.items() if code in ALLOWED_COUNTRY_CODES}
-    sorted_arabic_countries = sorted(list(country_map.keys()))
+@st.cache_data
+def load_countries() -> Dict[str, Dict[str, Any]]:
+    gc = geonamescache.GeonamesCache()
+    return gc.get_countries()
 
-    cities_by_country: Dict[str, List[Dict[str, Any]]] = {}
-    filtered_cities = []
-    
-    for c_code, c_data in countries.items():
-        if c_code not in ALLOWED_COUNTRY_CODES:
-            continue
-        eng_country_name = c_data["name"]
-        arabic_c_name = get_arabic_country_name(eng_country_name)
-        c_cities = [city for city in cities.values() if city["countrycode"] == c_code]
-        c_cities_sorted = sorted(c_cities, key=lambda x: x["population"], reverse=True)
-        
-        cities_by_country[c_code] = c_cities_sorted
-        
-        for city in c_cities_sorted:
-            if city.get("population", 0) > 80000:
-                lat = city.get("latitude", 0)
-                if -65.0 <= lat <= 65.0:
-                    city_copy = city.copy()
-                    city_copy["arabic_country"] = arabic_c_name
-                    filtered_cities.append(city_copy)
-
-    return gc, country_map, sorted_arabic_countries, cities_by_country, filtered_cities
-
-gc, country_map, country_list, cities_by_country, filtered_cities = load_geo_data()
+def get_cities_by_country(country_code: str) -> List[City]:
+    cities = load_cities()
+    return sorted(
+        [c for c in cities if c.country_code == country_code],
+        key=lambda c: c.population,
+        reverse=True,
+    )
 
 @st.cache_resource
 def get_tz_finder() -> TimezoneFinder:
@@ -153,8 +106,25 @@ def get_tz_finder() -> TimezoneFinder:
 
 tf = get_tz_finder()
 
+def get_timezone_for_city(city: City) -> str | None:
+    try:
+        return tf.timezone_at(lat=city.latitude, lng=city.longitude)
+    except Exception:
+        return "UTC"
+
+# تحميل قواعد البيانات الجغرافية العالمية
+countries_data = load_countries()
+all_cities_list = load_cities()
+
+# بناء خريطة أسماء الدول (إنجليزي إلى الكود)
+country_name_to_code = {c_info["name"]: c_code for c_code, c_info in countries_data.items()}
+sorted_country_names = sorted(list(country_name_to_code.keys()))
+
 def get_utc_julian_day(date_obj: datetime.date, time_obj: datetime.time, tz_str: str) -> float:
-    local_tz = pytz.timezone(tz_str)
+    try:
+        local_tz = pytz.timezone(tz_str)
+    except Exception:
+        local_tz = pytz.utc
     dt = datetime.datetime.combine(date_obj, time_obj)
     local_dt = local_tz.localize(dt)
     utc_dt = local_dt.astimezone(pytz.utc)
@@ -166,7 +136,7 @@ def get_utc_julian_day(date_obj: datetime.date, time_obj: datetime.time, tz_str:
     )
 
 # ==========================================
-# 2. القواميس الفلكية للكواكب السبعة الأساسية
+# 2. القواميس الفلكية والتفسيرية للكواكب والأوتاد
 # ==========================================
 PLANET_DICTIONARY = {
     "الشمس (Sun)": {
@@ -221,14 +191,14 @@ PLANET_DICTIONARY = {
 }
 
 # ==========================================
-# 3. واجهة المستخدم (Streamlit UI)
+# 3. واجهة المستخدم الاحترافية (Streamlit UI)
 # ==========================================
-st.title("🌟 النظام المتقدم للأستروكارتوغرافيا الاحترافي")
-st.markdown("### المسح الفلكي الجغرافي للدول (برمجة الفلكي استرو رادار)")
+st.title("🌟 النظام المتقدم الشامل للأستروكارتوغرافيا الاحترافي")
+st.markdown("### المسح الفلكي الجغرافي العالمي لكافة دول العالم (برمجة الخبير الفلكي استرو رادار)")
 st.markdown("---")
 
 with st.sidebar:
-    st.header(" بيانات المولود")
+    st.header("👤 بيانات المستفيد")
     name = st.text_input("اسم المستفيد", "ميار")
     
     current_year = datetime.date.today().year
@@ -240,29 +210,32 @@ with st.sidebar:
     )
     birth_time = st.time_input("ساعة الميلاد (التوقيت المحلي)", datetime.time(11, 30), step=datetime.timedelta(minutes=1))
     
-    st.header(" مكان الولادة الجغرافي")
-    birth_country_name = st.selectbox("دولة الميلاد", country_list, index=country_list.index("سوريا") if "سوريا" in country_list else 0)
-    birth_c_code = country_map.get(birth_country_name, 'SY')
+    st.header("🌍 مكان الولادة الجغرافي")
+    birth_country_name = st.selectbox("دولة الميلاد", sorted_country_names, index=sorted_country_names.index("Syria") if "Syria" in sorted_country_names else 0)
+    birth_c_code = country_name_to_code.get(birth_country_name, 'SY')
     
-    birth_cities = cities_by_country.get(birth_c_code, [])
-    birth_city_names = [c["name"] for c in birth_cities] if birth_cities else ["Default"]
+    birth_cities = get_cities_by_country(birth_c_code)
+    birth_city_names = [c.name for c in birth_cities] if birth_cities else ["Default"]
     birth_city_name = st.selectbox("مدينة الميلاد", birth_city_names)
     
-    b_city_data = next((c for c in birth_cities if c["name"] == birth_city_name), {"latitude": 33.5138, "longitude": 36.2765})
-    b_lat, b_lon = b_city_data["latitude"], b_city_data["longitude"]
+    b_city_data = next((c for c in birth_cities if c.name == birth_city_name), None)
+    if b_city_data:
+        b_lat, b_lon = b_city_data.latitude, b_city_data.longitude
+    else:
+        b_lat, b_lon = 33.5138, 36.2765
     
     tz_str = tf.timezone_at(lng=b_lon, lat=b_lat) or "UTC"
     
     st.markdown("---")
-    st.header(" نطاق ونوع البحث")
-    search_mode = st.radio("خيارات البحث الجغرافي", ["مسح كامل لجميع الدول المتاحة (تصنيف أفضل وأسوأ 10 دول)", "البحث في دولة محددة فقط"])
+    st.header("🔍 نطاق ونوع البحث")
+    search_mode = st.radio("خيارات البحث الجغرافي", ["مسح عالمي شامل لكافة دول العالم (ترتيب أفضل وأسوأ الدول)", "البحث في دولة محددة فقط"])
     
     selected_target_country = None
     if search_mode == "البحث في دولة محددة فقط":
-        selected_target_country = st.selectbox("اختر الدولة المستهدفة للتحليل", country_list)
+        selected_target_country = st.selectbox("اختر الدولة المستهدفة للتحليل", sorted_country_names)
 
     st.markdown("---")
-    st.info("ℹ️ **الدول المعتمدة:** الشرق الأوسط، شمال أفريقيا، أمريكا، كندا، أستراليا، بريطانيا وأوروبا.\n\n**الأوربت الفلكي:** ثابت عند 1.0 درجة.")
+    st.info("ℹ️ **النطاق المحدث:** يدعم النظام **كافة دول العالم** بدون استثناء.\n\n**الأوربت الفلكي:** ثابت عند 1.0 درجة للمسح الدقيق.")
 
     analyze_btn = st.button("🚀 بدء التحليل الفلكي الجغرافي", type="primary")
 
@@ -272,7 +245,7 @@ with st.sidebar:
 if analyze_btn:
     FIXED_ORB = 1.0  # المعيار العالمي الثابت للأوربت
     
-    with st.spinner("جاري إجراء الحسابات الفلكية وتحليل الأثر الكوكبي على الدول والمدن..."):
+    with st.spinner("جاري إجراء الحسابات الفلكية وتحليل الأثر الكوكبي على مدن وعواصم العالم..."):
         jd = get_utc_julian_day(birth_date, birth_time, tz_str)
         
         planets_to_calc = {
@@ -295,19 +268,20 @@ if analyze_btn:
             return diff if diff <= 180.0 else 360.0 - diff
 
         benefic_planets = ["الشمس (Sun)", "الزهرة (Venus)", "المشتري (Jupiter)", "القمر (Moon)", "عطارد (Mercury)"]
-        malefic_planets = ["المريخ (Mars)", "زحل (Saturn)"]
-
-        # تصفية المدن بناءً على خيار الدولة المحددة أو المسح الشامل
-        cities_to_scan = filtered_cities
+        
+        # اختيار المدن بناءً على البحث المحدد أو الشامل
+        cities_to_scan = all_cities_list
         if selected_target_country:
-            cities_to_scan = [c for c in filtered_cities if c["arabic_country"] == selected_target_country]
+            target_c_code = country_name_to_code.get(selected_target_country, "")
+            cities_to_scan = [c for c in all_cities_list if c.country_code == target_c_code]
 
         raw_hits = []
 
         for city in cities_to_scan:
-            c_lat = city["latitude"]
-            c_lon = city["longitude"]
-            arabic_country = city["arabic_country"]
+            c_lat = city.latitude
+            c_lon = city.longitude
+            c_code = city.country_code
+            country_eng_name = countries_data.get(c_code, {}).get("name", c_code)
             
             try:
                 houses = swe.houses_ex(jd, c_lat, c_lon, b'P')
@@ -334,8 +308,8 @@ if analyze_btn:
                         hit_type = "benefic" if p_name in benefic_planets else "malefic"
                         
                         raw_hits.append({
-                            "city_name": city["name"],
-                            "country_name": arabic_country,
+                            "city_name": city.name,
+                            "country_name": country_eng_name,
                             "planet": p_name,
                             "angle": angle_name,
                             "orb": round(dist, 3),
@@ -344,12 +318,11 @@ if analyze_btn:
                             "desc": desc
                         })
 
-        st.success(" تم إنجاز التحليل الفلكي الجغرافي بنجاح!")
-        st.markdown(f"## 🌍 تقرير الأستروكارتوغرافيا لـ: {name}")
-        st.markdown(f"**نطاق التأثير (Orb):** ثابت عند **$1.0^\\circ$** (التوصية العالمية الصارمة)")
+        st.success("✨ تم إنجاز التحليل الفلكي الجغرافي العالمي بنجاح!")
+        st.markdown(f"## 🌍 تقرير الأستروكارتوغرافيا الشامل لـ: {name}")
+        st.markdown(f"**نطاق التأثير (Orb):** ثابت عند **$1.0^\\circ$**")
 
         if selected_target_country:
-            # العرض في حالة اختيار دولة محددة
             st.markdown(f"### 📍 نتائج التحليل الخاص بـ: **{selected_target_country}**")
             if not raw_hits:
                 st.warning(f"⚠️ **منطقة محايدة فلكياً:** لا يمر أي خط كوكبي رئيسي ضمن النطاق المؤثر ($\\le 1.0^\\circ$) عبر مدن {selected_target_country}.")
@@ -361,20 +334,19 @@ if analyze_btn:
                     "البعد (Orb)": f"{h['orb']}°",
                     "نوع التأثير": "داعم/إيجابي" if h["type"] == "benefic" else "ضاغط/تحدي"
                 } for h in sorted(raw_hits, key=lambda x: x["orb"])])
-                st.dataframe(df_country, width='stretch')
+                st.dataframe(df_country, use_container_width=True)
 
                 st.markdown("#### التفاصيل التحليلية للمدن المكتشفة:")
                 for hit in sorted(raw_hits, key=lambda x: x["orb"]):
                     box_color = "#27ae60" if hit["type"] == "benefic" else "#c0392b"
                     st.markdown(f"""
-                    <div style="border-left: 5px solid {box_color}; padding: 10px; margin: 8px 0; background: #fdfefe; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                    <div style="border-left: 5px solid {box_color}; padding: 12px; margin: 8px 0; background: #fdfefe; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
                         <h4 style="margin: 0; color: #2c3e50;">📍 مدينة: <b>{hit['city_name']}</b></h4>
                         <p style="margin: 4px 0;"><b>الكوكب:</b> {hit['planet']} | <b>الوتد:</b> <code>{hit['angle']}</code> | <b>البعد الدقيق (Orb):</b> {hit['orb']}°</p>
                         <p style="margin: 4px 0; color: #555;"><b>التأثير الفلكي:</b> {hit['desc']}</p>
                     </div>
                     """, unsafe_allow_html=True)
         else:
-            # العرض في حالة المسح الكامل لتصنيف أفضل 10 دول وأسوأ 10 دول بالترتيب
             best_countries_dict = {}
             worst_countries_dict = {}
 
@@ -387,15 +359,12 @@ if analyze_btn:
                     if c_name not in worst_countries_dict or hit["orb"] < worst_countries_dict[c_name]["orb"]:
                         worst_countries_dict[c_name] = hit
 
-            # ترتيب أفضل 10 دول بالترتيب حسب الأورب والأكثر دقة
-            sorted_best_countries = sorted(list(best_countries_dict.values()), key=lambda x: x["orb"])[:10]
-            
-            # ترتيب أسوأ 10 دول بالترتيب حسب الأورب والأكثر ضغطاً
-            sorted_worst_countries = sorted(list(worst_countries_dict.values()), key=lambda x: x["orb"])[:10]
+            sorted_best_countries = sorted(list(best_countries_dict.values()), key=lambda x: x["orb"])[:15]
+            sorted_worst_countries = sorted(list(worst_countries_dict.values()), key=lambda x: x["orb"])[:15]
 
-            st.markdown("### 🏆 أفضل 10 دول بالترتيب (تأثيرات الشمس، الزهرة، المشتري، القمر، عطارد):")
+            st.markdown("### 🏆 أفضل الدول عالمياً (تأثيرات الشمس، الزهرة، المشتري، القمر، عطارد):")
             if not sorted_best_countries:
-                st.warning("⚠️ لم يتم رصد تقاطعات داعمة قوية ضمن الأوربت المحدد.")
+                st.warning("⚠️ لم يتم رصد تقاطعات داعمة قوية ضمن الأوربت المحدد عالمياً.")
             else:
                 df_best_c = pd.DataFrame([{
                     "الترتيب": idx + 1,
@@ -405,11 +374,11 @@ if analyze_btn:
                     "الوتد": h["angle"],
                     "البعد (Orb)": f"{h['orb']}°"
                 } for idx, h in enumerate(sorted_best_countries)])
-                st.dataframe(df_best_c, width='stretch')
+                st.dataframe(df_best_c, use_container_width=True)
 
-            st.markdown("### ⚠️ أسوأ 10 دول بالترتيب (تأثيرات المريخ وزحل الضاغطة):")
+            st.markdown("### ⚠️ أكثر الدول ضغطاً وتحدياً عالمياً (تأثيرات المريخ وزحل):")
             if not sorted_worst_countries:
-                st.info("ℹ️ لم يتم رصد دول واقعة تحت تأثيرات ضاغطة لزحل والمريخ ضمن الأوربت المحدد.")
+                st.info("ℹ️ لم يتم رصد دول واقعة تحت تأثيرات ضاغطة لزحل والمريخ ضمن الأوربت المحدد عالمياً.")
             else:
                 df_worst_c = pd.DataFrame([{
                     "الترتيب": idx + 1,
@@ -419,61 +388,62 @@ if analyze_btn:
                     "الوتد": h["angle"],
                     "البعد (Orb)": f"{h['orb']}°"
                 } for idx, h in enumerate(sorted_worst_countries)])
-                st.dataframe(df_worst_c, width='stretch')
+                st.dataframe(df_worst_c, use_container_width=True)
 
-            # تجهيز التقرير الـ HTML
+            # تجهيز التقرير الـ HTML الاحترافي والجذاب
             html_content = f"""
             <!DOCTYPE html>
             <html lang="ar" dir="rtl">
             <head>
                 <meta charset="UTF-8">
-                <title>تقرير الأستروكارتوغرافيا المتقدم - {name}</title>
+                <title>التقرير الفلكي العالمي للأستروكارتوغرافيا - {name}</title>
                 <style>
-                    body {{ font-family: 'Tahoma', sans-serif; margin: 40px; background: #f9f9f9; color: #333; }}
-                    .header {{ text-align: center; border-bottom: 2px solid #2c3e50; padding-bottom: 20px; }}
-                    h1 {{ color: #2c3e50; }}
-                    .section {{ background: #fff; padding: 20px; margin-top: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
-                    .card-best {{ border-left: 5px solid #27ae60; padding: 10px 15px; margin: 10px 0; background: #f1f9f5; }}
-                    .card-worst {{ border-left: 5px solid #c0392b; padding: 10px 15px; margin: 10px 0; background: #fdf3f2; }}
+                    body {{ font-family: 'Tahoma', sans-serif; margin: 40px; background: #f4f6f7; color: #2c3e50; line-height: 1.6; }}
+                    .header {{ text-align: center; border-bottom: 3px solid #2c3e50; padding-bottom: 25px; background: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }}
+                    h1 {{ color: #1a252f; margin-bottom: 5px; }}
+                    .section {{ background: #ffffff; padding: 25px; margin-top: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }}
+                    .card-best {{ border-right: 6px solid #27ae60; padding: 15px; margin: 15px 0; background: #f1f9f5; border-radius: 6px; }}
+                    .card-worst {{ border-right: 6px solid #c0392b; padding: 15px; margin: 15px 0; background: #fdf3f2; border-radius: 6px; }}
+                    .footer {{ text-align: center; margin-top: 40px; color: #7f8c8d; font-size: 13px; }}
                 </style>
             </head>
             <body>
                 <div class="header">
-                    <h1>تقرير الأستروكارتوغرافيا لتصنيف الدول (أوربت {FIXED_ORB}°)</h1>
+                    <h1>تقرير الأستروكارتوغرافيا العالمي (أوربت {FIXED_ORB}°)</h1>
                     <p>المستفيد: <strong>{name}</strong> | تاريخ الميلاد: {birth_date} ({birth_time})</p>
                 </div>
                 
                 <div class="section">
-                    <h2>🏆 أفضل 10 دول بالترتيب</h2>
+                    <h2>🏆 أفضل الدول الداعمة عالمياً</h2>
             """
             
             for idx, h in enumerate(sorted_best_countries):
                 html_content += f"""
                 <div class="card-best">
-                    <h3>المركز {idx+1}: {h['country_name']} (مدينة {h['city_name']})</h3>
-                    <p><b>الكوكب:</b> {h['planet']} | <b>الوتد:</b> {h['angle']} | <b>Orb:</b> {h['orb']}°</p>
-                    <p><b>التأثير:</b> {h['desc']}</p>
+                    <h3 style="margin-top:0; color: #27ae60;">المركز {idx+1}: {h['country_name']} (مدينة {h['city_name']})</h3>
+                    <p><b>الكوكب:</b> {h['planet']} | <b>الوتد:</b> {h['angle']} | <b>البعد الدقيق (Orb):</b> {h['orb']}°</p>
+                    <p><b>التأثير الإيجابي:</b> {h['desc']}</p>
                 </div>
                 """
                 
             html_content += """
                 </div>
                 <div class="section">
-                    <h2>⚠️ أسوأ 10 دول بالترتيب</h2>
+                    <h2>⚠️ أكثر الدول ضغطاً واختباراً عالمياً</h2>
             """
             
             for idx, h in enumerate(sorted_worst_countries):
                 html_content += f"""
                 <div class="card-worst">
-                    <h3 style="color: #c0392b;">المركز {idx+1}: {h['country_name']} (مدينة {h['city_name']})</h3>
-                    <p><b>الكوكب الضاغط:</b> {h['planet']} | <b>الوتد:</b> {h['angle']} | <b>Orb:</b> {h['orb']}°</p>
-                    <p><b>التأثير:</b> {h['desc']}</p>
+                    <h3 style="margin-top:0; color: #c0392b;">المركز {idx+1}: {h['country_name']} (مدينة {h['city_name']})</h3>
+                    <p><b>الكوكب الضاغط:</b> {h['planet']} | <b>الوتد:</b> {h['angle']} | <b>البعد الدقيق (Orb):</b> {h['orb']}°</p>
+                    <p><b>التأثير الضاغط:</b> {h['desc']}</p>
                 </div>
                 """
                 
             html_content += """
                 </div>
-                <div style="text-align: center; margin-top: 30px; color: #7f8c8d; font-size: 12px;">
+                <div class="footer">
                     تم إعداد هذا التقرير عبر محرك الأستروكارتوغرافيا المتقدم - جميع الحقوق محفوظة للفلكي استرو رادار.
                 </div>
             </body>
@@ -481,9 +451,7 @@ if analyze_btn:
             """
 
             st.markdown("---")
-            st.download_button(
-                label="📥 تحميل تقرير ترتيب الدول الكامل (HTML)",
-                data=html_content,
-                file_name=f"AstroCartography_Top_Countries_Report_{name.replace(' ', '_')}.html",
-                mime="text/html"
-            )
+            b64_html = base64.b64encode(html_content.encode("utf-8")).decode("utf-8")
+            href = f'<a href="data:text/html;base64,{b64_html}" download="Global_AstroCartography_Report_{name.replace(" ", "_")}.html" style="text-decoration: none;"><button style="padding: 12px 25px; background-color: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold;">📥 تنزيل التقرير العالمي الكامل (HTML جاهز للطباعة والـ PDF)</button></a>'
+            st.markdown(href, unsafe_allow_html=True)
+            st.success("🎉 تم توليد التقرير العالمي بنجاح وجاهز للتحميل والتصدير!")
