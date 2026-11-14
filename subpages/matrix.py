@@ -517,13 +517,3 @@ if st.button("🚀 تشغيل التحليل الفلكي التجاري الم�
         file_name=f"Horary_Report_{client_name.replace(' ', '_')}.html",
         mime="text/html"
     )
-```[cite: 1]
-
----
-
-### ثالثاً: دليل سريع لتشغيل الكود والتحقق من نتائجه
-
-1. **متطلبات النظام البيئية:**
-   تأكد من تثبيت بايثون على جهازك، ثم قم بتثبيت الحزم البرمجية المطلوبة عبر موجه الأوامر:
-   ```bash
-   pip install streamlit pandas pytz timezonefinder geonamescache pyswisseph
