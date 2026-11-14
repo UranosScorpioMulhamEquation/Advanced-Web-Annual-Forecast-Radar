@@ -555,7 +555,7 @@ def main():
     time_options = ["الساعة غير معروفة"] + [time(h, m).strftime('%H:%M') for h in range(24) for m in range(0, 60, 5)]
     default_time_idx = time_options.index("11:40") if "11:40" in time_options else 0
 
-    name_input = st.text_input("الاسم (دولة، مؤسسة، شخص)", value="Mulham Ahmad Halabieh")
+    name_input = st.text_input("الاسم (دولة، مؤسسة، شخص)", value="Ahmad")
     
     col1, col2 = st.columns(2)
     with col1:
@@ -574,7 +574,7 @@ def main():
 
     col3, col4 = st.columns(2)
     with col3:
-        birth_date_val = st.date_input("تاريخ الميلاد", value=datetime(1981, 4, 17), min_value=datetime(1900, 1, 1), max_value=datetime(2100, 12, 31))
+        birth_date_val = st.date_input("تاريخ الميلاد", value=datetime(1981, 4, 15), min_value=datetime(1900, 1, 1), max_value=datetime(2100, 12, 31))
     with col4:
         time_select = st.selectbox("ساعة الميلاد", time_options, index=default_time_idx)
 
