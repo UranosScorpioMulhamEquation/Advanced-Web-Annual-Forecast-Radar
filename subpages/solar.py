@@ -3,13 +3,11 @@ import html
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from typing import NamedTuple, List, Tuple, Dict, Any
-from functools import lru_cache
 import traceback
 
 import geonamescache
 import libephemeris as swe
 from timezonefinder import TimezoneFinder
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import os
 import streamlit as st
 
@@ -36,13 +34,12 @@ html, body, [class*="css"] {
 """, unsafe_allow_html=True)
 
 # ==================== 1. Security & Paths (Mobile Optimized) ====================
-# تحديد مجلد التطبيق لضمان صلاحيات القراءة والكتابة
-APP_DIR = os.getcwd() # تعريف مبدئي آمن لتجنب NameError
+APP_DIR = os.getcwd()
 
 try:
     os.makedirs(APP_DIR, exist_ok=True)
 except Exception:
-    APP_DIR = os.getcwd() # كبديل آمن إذا تم تشغيله خارج الأندرويد
+    APP_DIR = os.getcwd()
 
 # ==================== إعدادات libephemeris ====================
 swe.set_ephe_path(APP_DIR)
@@ -76,9 +73,8 @@ class SolarChart:
     planet_rows: list[dict]
     house_system: str = "Whole Sign (كل برج بيت)"
 
-# ==================== تحميل البيانات الجغرافية ====================
+# ==================== تحميل البيانات الجغرافية (بدون كاش لتجنب أخطاء Serialization للـ NamedTuple) ====================
 
-@st.cache_data # تم استبدال lru_cache بـ cache_data لتلائم ستريملايت وتمنع التعليق
 def load_cities():
     gc = geonamescache.GeonamesCache()
     cities_list = []
@@ -97,7 +93,6 @@ def load_cities():
             )
     return cities_list
 
-@st.cache_data
 def load_countries():
     gc = geonamescache.GeonamesCache()
     return gc.get_countries()
@@ -542,7 +537,6 @@ table.astro-table tr:hover {{ background-color: #f9f9f9; }}
 def main():
     st.markdown("<h2 style='color: #4b1a9e;'>رادار التوقعات السنوية المتقدم - استرو رادار</h2>", unsafe_allow_html=True)
     
-    # تحضير الخيارات الجغرافية والزمنية
     countries = load_countries()
     country_options = sorted([(f"{c['name']} ({c['iso']})", c['iso']) for c in countries.values()], key=lambda x: x[0])
     country_display = [x[0] for x in country_options]
@@ -551,16 +545,14 @@ def main():
     time_options = ["الساعة غير معروفة"] + [time(h, m).strftime('%H:%M') for h in range(24) for m in range(0, 60, 5)]
     default_time_idx = time_options.index("11:40") if "11:40" in time_options else 0
 
-    # إدخال البيانات الشخصية
     name_input = st.text_input("الاسم (دولة، مؤسسة، شخص)", value="Mulham Ahmad Halabieh")
     
     col1, col2 = st.columns(2)
     with col1:
         gender_select = st.selectbox("الجنس / النوع", ["ذكر", "أنثى", "مؤسسة/دولة"], index=0)
     with col2:
-        target_year_select = st.selectbox("السنة المستهدفة", [str(y) for y in range(1900, 2100)], index=116) # 2026
+        target_year_select = st.selectbox("السنة المستهدفة", [str(y) for y in range(1900, 2100)], index=116)
 
-    # خيار ديناميكي لتحديد تفاصيل الكيان في حال تم اختياره لتحديث القواميس بشكل سليم
     target_type = "individual"
     if gender_select == "مؤسسة/دولة":
         entity_type = st.radio("تصنيف الكيان لتحسين التحليل الفلكي دلالياً:", ["دولة", "شركة / مؤسسة"], horizontal=True)
@@ -568,7 +560,6 @@ def main():
     else:
         target_type = "individual"
 
-    # تهيئة القاموس الفلكي المستهدف ديناميكياً لتجنب NameError ومنع تعطل الواجهة
     houses_meaning_global = houses_meanings.get(target_type, houses_meanings["individual"])
 
     col3, col4 = st.columns(2)
@@ -577,7 +568,6 @@ def main():
     with col4:
         time_select = st.selectbox("ساعة الميلاد", time_options, index=default_time_idx)
 
-    # بيانات الولادة
     st.divider()
     st.markdown("#### بيانات الولادة ( التأسيس - الاستقلال )")
     
@@ -597,7 +587,6 @@ def main():
         st.warning("لا توجد مدن متاحة لهذه الدولة")
         b_city = None
 
-    # بيانات السنوية
     st.divider()
     st.markdown("#### بيانات السنوية (المكان الحالي - في حال الدول و الشركات نختار نفس بيانات الولادة)")
     
@@ -614,12 +603,11 @@ def main():
         r_city_name = st.selectbox("مدينة السنوية", r_city_names, index=r_city_idx)
         r_city = r_cities[r_city_names.index(r_city_name)]
     else:
-        st.warning("لا توجد مدن متاحة لهذه الدولة")
+        st.warning("لا توجد مدن متاحة لهذه الدولة للموقع الحالي")
         r_city = None
 
     st.divider()
 
-    # زر توليد التقرير
     if st.button("تحليل واستخراج التقرير", use_container_width=True):
         if not b_city or not r_city:
             st.error("يرجى اختيار المدن أولاً.")
@@ -630,14 +618,12 @@ def main():
                 t_year = int(target_year_select)
                 b_date = birth_date_val
                 
-                # تحويل الوقت
                 if time_select == "الساعة غير معروفة":
                     b_time = "الساعة غير معروفة"
                 else:
                     h, m = map(int, time_select.split(":"))
                     b_time = time(h, m)
                 
-                # تشغيل الحسابات الأساسية والتحليلية
                 chart = calculate_chart(b_date, b_time, b_city, r_city, t_year)
                 usm_rows = run_usm_engine_daily(b_date)
                 usm_row = next((r for r in usm_rows if r.age == (t_year - b_date.year)), usm_rows[0])
@@ -658,7 +644,6 @@ def main():
                 
                 report_html_data = build_report_html(personal_info, chart, usm_row, house_evals, house_preds, aspect_preds)
                 
-                # عرض النتائج في واجهة Streamlit
                 st.markdown(f"### ملخص التقرير لـ {name_input}")
                 
                 if usm_row.status == "CRITICAL":
@@ -687,7 +672,6 @@ def main():
                             st.markdown(d, unsafe_allow_html=True)
 
                 st.divider()
-                # زر تحميل التقرير (HTML جاهز للطباعة والـ PDF)
                 st.download_button(
                     label="💾 حفظ التقرير الكامل (HTML)",
                     data=report_html_data.encode("utf-8"),
