@@ -1,6 +1,6 @@
-# divorce_calculator_pro_app.py
+# divorce_calculator_50_indicators_app.py
 """
-حاسبة الأزمات الزوجية، الطلاق، الانفصال، الشراكات التجارية والقضايا (نظام ريغومونتانوس ونقاط المنتصف المتطورة)
+حاسبة الأزمات الزوجية، الطلاق، الانفصال والشراكات المتقدمة (50 دلالة فلكية + 3 ميد بوينت)
 إعداد وتطوير: الفلكي الدكتور استرو رادار.
 """
 
@@ -22,7 +22,7 @@ swe.set_ephe_path('')  # استخدام وضع Moshier الافتراضي للت
 # 1. إعدادات واجهة المستخدم وتكوين التطبيق (RTL)
 # =============================================================================
 st.set_page_config(
-    page_title="حاسبة الأزمات الزوجية والطلاق المتقدمة",
+    page_title="حاسبة الأزمات الزوجية والطلاق المتقدمة (50 دلالة)",
     layout="wide",
     page_icon="💔",
 )
@@ -160,7 +160,7 @@ PLANETS = {
     "Uranus": swe.URANUS,
     "Neptune": swe.NEPTUNE,
     "Pluto": swe.PLUTO,
-    "Rahu": swe.TRUE_NODE  # أضيفت العقدة الشمالية لدقة أعلى في القيود والاتصالات القدرية
+    "Rahu": swe.TRUE_NODE
 }
 
 ZODIAC_NAMES = [
@@ -169,24 +169,23 @@ ZODIAC_NAMES = [
     "القوس", "الجدي", "الدلو", "الحوت",
 ]
 
-# حكام البروج (التنجيم الحديث والتقليدي)
 SIGN_RULERS = {
-    0: "Mars",    # الحمل
-    1: "Venus",   # الثور
-    2: "Mercury", # الجوزاء
-    3: "Moon",    # السرطان
-    4: "Sun",     # الأسد
-    5: "Mercury", # العذراء
-    6: "Venus",   # الميزان
-    7: "Pluto",   # العقرب (الحديث)
-    8: "Jupiter", # القوس
-    9: "Saturn",  # الجدي
-    10: "Uranus", # الدلو (الحديث)
-    11: "Neptune"# الحوت (الحديث)
+    0: "Mars",    
+    1: "Venus",   
+    2: "Mercury", 
+    3: "Moon",    
+    4: "Sun",     
+    5: "Mercury", 
+    6: "Venus",   
+    7: "Pluto",   
+    8: "Jupiter", 
+    9: "Saturn",  
+    10: "Uranus", 
+    11: "Neptune" 
 }
 
 # =============================================================================
-# 4. الدوال الفلكية والرياضية الأساسية وتحسين حسابات الميد بوينت
+# 4. الدوال الفلكية والرياضية الأساسية
 # =============================================================================
 def get_utc_julian_day(date_obj, time_obj, tz_str):
     local_tz = pytz.timezone(tz_str)
@@ -250,7 +249,7 @@ def get_aspect(lon1, lon2, orb=6):
 
 def check_midpoints_activation(sr_planets, midpoints_dict):
     """
-    فحص تفعيل الميد بوينت الميلادية (10 نقاط منتصف متخصصة للطلاق والنهايات).
+    فحص تفعيل نقاط المنتصف (10 نقاط منتصف متخصصة للطلاق والنهايات).
     الشروط: الفرق الفلكي الصافي أقل من درجتين (diff < 2.0°).
     """
     activated_details = []
@@ -269,16 +268,14 @@ def check_midpoints_activation(sr_planets, midpoints_dict):
 
     count = len(activated_mp_names)
 
-    if count == 0:
-        status = "استقرار تام"
-    elif count == 1:
-        status = "غضب داخلي وتحفظ"
-    elif count == 2:
-        status = "مشاكل زوجية واهتزاز بالشراكة"
+    if count < 3:
+        status = "استقرار أو أزمة عابرة"
     elif count == 3:
-        status = "أزمة خانقة وخلافات قانونية"
+        status = "أزمة زوجية خانقة"
+    elif count == 4:
+        status = "نزاع قضائي/انفصال فعلي"
     else:
-        status = "طلاق محتمل وانفصال قانوني/قضائي"
+        status = "طلاق مؤكد وحتمي وقضاء نهائي"
 
     return activated_details, count, status
 
@@ -287,8 +284,8 @@ def check_midpoints_activation(sr_planets, midpoints_dict):
 # =============================================================================
 st.markdown("""
 <div class="main-header">
-    <h1>حاسبة الأزمات الزوجية، الطلاق، الانفصال والشراكات (نظام ريغومونتانوس)</h1>
-    <p>محرك تحليل فلكي متقدم يعتمد على الـ 10 ميد بوينت الخاصة بالنهايات والـ 25 دلالة تفصيلية</p>
+    <h1>حاسبة الأزمات الزوجية، الطلاق، الانفصال والشراكات (50 دلالة فلكية)</h1>
+    <p>محرك تحليل فلكي متقدم يعتمد على الـ 10 ميد بوينت وتفعيل 3 نقاط فما فوق + 50 دلالة تفصيلية</p>
     <p>تطوير: الفلكي الدكتور استرو رادار</p>
 </div>
 """, unsafe_allow_html=True)
@@ -319,10 +316,10 @@ with col3:
     sr_city_names = [c["name"] for c in sr_city_objects] if sr_city_objects else [sr_country_name]
     sr_city_name = st.selectbox("مدينة السنوية", sr_city_names, index=0, key="sr_city_select")
 
-submit = st.button("🚀 بدء الفحص الشامل للسنوات الحرجة والطلاق", type="primary")
+submit = st.button("🚀 بدء الفحص الشامل للسنوات الحرجة والطلاق (50 دلالة)", type="primary")
 
 # =============================================================================
-# 6. المحرك الأساسي ومعالجة البيانات الفلكية
+# 6. المحرك الأساسي ومعالجة البيانات الفلكية الشاملة
 # =============================================================================
 if submit:
     b_city_obj = next((c for c in b_city_objects if c["name"] == b_city_name), None)
@@ -347,7 +344,7 @@ if submit:
     # حساب البيوت الميلادية بنظام ريغومونتانوس (b'R')
     natal_cusps, _ = swe.houses(jd_birth, b_lat, b_lon, b"R")
 
-    # تطوير وإضافة 10 نقاط منتصف (Midpoints) متخصصة في الطلاق والانفصال والتقييد
+    # نقاط المنتصف (Midpoints) الـ 10 للطلاق والنهايات
     natal_midpoints = {
         "زحل/الزهرة": calc_midpoint(natal_planets["Saturn"], natal_planets["Venus"]),
         "زحل/المريخ": calc_midpoint(natal_planets["Saturn"], natal_planets["Mars"]),
@@ -361,7 +358,7 @@ if submit:
         "زحل/أورانوس": calc_midpoint(natal_planets["Saturn"], natal_planets["Uranus"]),
     }
 
-    st.info("📌 تم استخراج المواقع الميلادية ونقاط المنتصف الـ 10 الخاصة بالانفصال بدقة. جاري مسح العبور السنوي للسنوات العمرية...")
+    st.info("📌 تم استخراج المواقع الميلادية ونقاط المنتصف الـ 10 بدقة. جاري مسح العبور السنوي للسنوات العمرية وفقاً لشرط 3 ميد بوينت و50 دلالة...")
 
     start_year = birth_date.year + 18
     end_year = birth_date.year + 65
@@ -394,15 +391,15 @@ if submit:
                 "is_retro": speed < 0,
             }
 
-        # 1. فحص تفعيل الميد بوينت (بشرط تفعيل 2 ميد بوينت على الأقل بفارق < 2.0°)
+        # 1. فحص تفعيل الميد بوينت (بشرط تفعيل 3 نقاط منتصف على الأقل بفارق < 2.0°)
         mp_details, mp_count, mp_status = check_midpoints_activation(sr_planets, natal_midpoints)
 
-        if mp_count < 2:
+        if mp_count < 3:
             progress_bar.progress(progress_val)
             continue
 
         # =====================================================================
-        # 2. تقييم دلالات الطلاق والانفصال السنوية الـ 25 بالتنجيم الغربي
+        # 2. تقييم دلالات الطلاق والانفصال السنوية الـ 50 الكاملة
         # =====================================================================
         dallalat_details = []
         dallalat_count = 0
@@ -410,126 +407,104 @@ if submit:
         ruler_7 = SIGN_RULERS[int(sr_cusps[6] / 30)]
         ruler_1 = SIGN_RULERS[int(sr_cusps[0] / 30)]
 
-        # دلالة 1
+        # --- مجموعة الأوتاد والبيوت (من 1 إلى 12) ---
         sr_asc_in_natal = get_house_of_planet(sr_asc, natal_cusps)
         if sr_asc_in_natal in [8, 12]:
             dallalat_count += 1
             dallalat_details.append(f"1. طالع العودة الشمسية في **البيت {sr_asc_in_natal} الميلادي** (بيت النهايات والأزمات).")
 
-        # دلالة 2
         sr_h7_in_natal = get_house_of_planet(sr_cusps[6], natal_cusps)
         if sr_h7_in_natal in [8, 12]:
             dallalat_count += 1
             dallalat_details.append(f"2. البيت السابع السنوي في **البيت {sr_h7_in_natal} الميلادي** (تحولات جذرية بالشراكة).")
 
-        # دلالة 3
         if sr_planets["Uranus"]["house"] == 7:
             dallalat_count += 1
             dallalat_details.append("3. أورانوس السنوي في **البيت 7** (قطيعة مفاجئة وتمرد وانفصال).")
 
-        # دلالة 4
         if sr_planets["Saturn"]["house"] == 7:
             dallalat_count += 1
             dallalat_details.append("4. زحل السنوي في **البيت 7** (جفاء عاطفي ومسؤوليات ثقيلة تقتل العلاقة).")
 
-        # دلالة 5
         if sr_planets["Pluto"]["house"] == 7:
             dallalat_count += 1
             dallalat_details.append("5. بلوتو السنوي في **البيت 7** (صراعات سيطرة قوية وهدم أركان الزواج).")
 
-        # دلالة 6
         if sr_planets["Mars"]["house"] == 7:
             dallalat_count += 1
             dallalat_details.append("6. المريخ السنوي في **البيت 7** (نزاعات حادة ومشاجرات ومعارك قانونية).")
 
-        # دلالة 7
         if sr_planets["Venus"]["house"] in [8, 12]:
             dallalat_count += 1
-            dallalat_details.append(f"7. الزهرة غارقة في **البيت {sr_planets['Venus']['house']} السنوي** (فقدان الشغف والأحزان العاطفية).")
+            dallalat_details.append(f"7. الزهرة غارقة في **البيت {sr_planets['Venus']['house']} السنوي** (فقدان الشغف والأحزان).")
 
-        # دلالة 8
         if sr_planets["Moon"]["house"] in [8, 12] or sr_planets["Moon"]["sign"] == 7:
             dallalat_count += 1
             dallalat_details.append(f"8. القمر السنوي في وضع حرج (البيت {sr_planets['Moon']['house']} / برج العقرب).")
 
-        # دلالة 9
         if sr_planets["Sun"]["house"] in [8, 12]:
             dallalat_count += 1
-            dallalat_details.append(f"9. الشمس السنوية في **البيت {sr_planets['Sun']['house']}** (استنزاف الهوية وضغوط نفسية حادة).")
+            dallalat_details.append(f"9. الشمس السنوية في **البيت {sr_planets['Sun']['house']}** (استنزاف الهوية وضغوط نفسية).")
 
-        # دلالة 10
         if sr_planets[ruler_7]["house"] in [8, 12]:
             dallalat_count += 1
-            dallalat_details.append(f"10. حاكم السابع السنوي ({ruler_7}) في **البيت {sr_planets[ruler_7]['house']}** (ابتعاد الشريك وتضرره).")
+            dallalat_details.append(f"10. حاكم السابع السنوي ({ruler_7}) في **البيت {sr_planets[ruler_7]['house']}** (ابتعاد الشريك).")
 
-        # دلالة 11
         if sr_planets[ruler_7]["is_retro"]:
             dallalat_count += 1
             dallalat_details.append(f"11. حاكم البيت السابع السنوي ({ruler_7}) **متراجع** (تردد، إعادة نظر، أو تراجع الشريك).")
 
-        # دلالة 12
         if sr_planets[ruler_1]["is_retro"] or sr_planets[ruler_1]["house"] in [8, 12]:
             dallalat_count += 1
             dallalat_details.append(f"12. حاكم الطالع السنوي ({ruler_1}) **متراجع أو بالبيت {sr_planets[ruler_1]['house']}**.")
 
-        # دلالة 13
+        # --- مجموعة الاتصالات النحسة (من 13 إلى 25) ---
         if get_aspect(sr_planets["Mars"]["lon"], sr_planets["Venus"]["lon"], orb=6) in ["Square", "Opposition"]:
             dallalat_count += 1
             dallalat_details.append("13. تربيع أو مقابلة بين **المريخ والزهرة** (تصادم الرغبات وتفجر الخلافات).")
 
-        # دلالة 14
         if get_aspect(sr_planets["Saturn"]["lon"], sr_planets["Venus"]["lon"], orb=6) in ["Square", "Opposition"]:
             dallalat_count += 1
             dallalat_details.append("14. تربيع أو مقابلة بين **زحل والزهرة** (برود شديد وشعور بالحرمان).")
 
-        # دلالة 15
         if get_aspect(sr_planets["Uranus"]["lon"], sr_planets["Venus"]["lon"], orb=6) in ["Square", "Opposition"]:
             dallalat_count += 1
             dallalat_details.append("15. تربيع أو مقابلة بين **أورانوس والزهرة** (صدمة ورغبة مفاجئة بالقطيعة).")
 
-        # دلالة 16
         if get_aspect(sr_planets["Pluto"]["lon"], sr_planets["Venus"]["lon"], orb=6) in ["Square", "Opposition"]:
             dallalat_count += 1
             dallalat_details.append("16. تربيع أو مقابلة بين **بلوتو والزهرة** (غيرة مرضية وشكوك مدمرة).")
 
-        # دلالة 17
         if get_aspect(sr_planets["Saturn"]["lon"], sr_planets["Moon"]["lon"], orb=6) in ["Square", "Opposition"]:
             dallalat_count += 1
             dallalat_details.append("17. تربيع أو مقابلة بين **زحل والقمر** (حزن واحباط عائلي عميق).")
 
-        # دلالة 18
         if get_aspect(sr_planets["Uranus"]["lon"], sr_planets["Moon"]["lon"], orb=6) in ["Square", "Opposition"]:
             dallalat_count += 1
             dallalat_details.append("18. تربيع أو مقابلة بين **أورانوس والقمر** (تقلبات وانزعاج من الاستقرار).")
 
-        # دلالة 19
         if get_aspect(sr_planets["Mars"]["lon"], sr_planets["Moon"]["lon"], orb=6) in ["Square", "Opposition"]:
             dallalat_count += 1
             dallalat_details.append("19. تربيع أو مقابلة بين **المريخ والقمر** (حدة انفعالية وغضب مكتوم).")
 
-        # دلالة 20 (مضافة): العقدة الشمالية (راهو) أو كيتو في البيت السابع السنوي
         if sr_planets["Rahu"]["house"] == 7:
             dallalat_count += 1
             dallalat_details.append("20. عقدة راهو في **البيت 7** (أحداث قدرية وصدمات غير متوقعة في الشراكة).")
 
-        # دلالة 21 (مضافة): تراجع المشتري أو حاكم السابع في عام الحسم
         if sr_planets["Jupiter"]["is_retro"]:
             dallalat_count += 1
             dallalat_details.append("21. المشتري السنوي **متراجع** (تعثر في التسويات القانونية وتأجيل حل النزاعات).")
 
-        # دلالة 22
         malefics_in_7th = [p for p in ["Saturn", "Mars", "Uranus", "Pluto"] if sr_planets[p]["house"] == 7]
         if len(malefics_in_7th) >= 2:
             dallalat_count += 1
             dallalat_details.append(f"22. تجمع نحس متعدد في البيت 7: (**{', '.join(malefics_in_7th)}**).")
 
-        # دلالة 23
         malefics_in_angles = [p for p in ["Saturn", "Mars", "Uranus", "Pluto"] if sr_planets[p]["house"] in [1, 4, 7, 10]]
         if len(malefics_in_angles) >= 3:
             dallalat_count += 1
             dallalat_details.append("23. هيمنة نحسة مكثفة على الأوتاد السنوية (أكثر من 3 كواكب ثقيلة).")
 
-        # دلالة 24
         target_malefics = ["Uranus", "Saturn", "Pluto", "Mars"]
         target_cusps = [sr_cusps[0], sr_cusps[3], sr_cusps[6], sr_cusps[9]]
         cusp_contacts = []
@@ -544,7 +519,6 @@ if submit:
             dallalat_count += 1
             dallalat_details.append(f"24. اقتران كواكب الهدم بأوتاد السنوية (أورب ≤ 6°): ({', '.join(cusp_contacts)}).")
 
-        # دلالة 25
         conj_ruler7_malefic = [
             p for p in ["Saturn", "Mars", "Uranus", "Pluto"]
             if p != ruler_7 and get_aspect(sr_planets[ruler_7]["lon"], sr_planets[p]["lon"], orb=6) == "Conjunction"
@@ -553,8 +527,136 @@ if submit:
             dallalat_count += 1
             dallalat_details.append(f"25. حاكم السابع ({ruler_7}) مقترن بنحس (**{', '.join(conj_ruler7_malefic)}**).")
 
-        # الشرط الصارم: تحقق 4 دلالات فما فوق + تفعيل 2 ميد بوينت على الأقل
-        if dallalat_count >= 4 and mp_count >= 2:
+        # --- تكملة الدلالات التخصصية الـ 25 الإضافية لتصبح المنظومة 50 دلالة متكاملة ---
+        # 26
+        if sr_planets["Mercury"]["house"] in [8, 12]:
+            dallalat_count += 1
+            dallalat_details.append("26. عطارد السنوي في البيت 8 أو 12 (مراسلات قانونية سلبية أو نزاع بالكلام والكتابة).")
+
+        # 27
+        if get_aspect(sr_planets["Mercury"]["lon"], sr_planets["Saturn"]["lon"], orb=6) in ["Square", "Opposition"]:
+            dallalat_count += 1
+            dallalat_details.append("27. تربيع أو مقابلة بين عطارد وزحل (انقطاع التواصل، جفاء الحوار، والكلمات القاسية).")
+
+        # 28
+        if get_aspect(sr_planets["Mercury"]["lon"], sr_planets["Mars"]["lon"], orb=6) in ["Square", "Opposition"]:
+            dallalat_count += 1
+            dallalat_details.append("28. تربيع أو مقابلة بين عطارد والمريخ (مشادّات كلامية حادة جداً وشتائم).")
+
+        # 29
+        if sr_planets["Sun"]["is_retro"]:
+            dallalat_count += 1
+            dallalat_details.append("29. الشمس متراجعة في العودة الشمسية (انطفاء لهيب العلاقة وتهميش دور أحد الزوجين).")
+
+        # 30
+        if sr_planets["Venus"]["is_retro"]:
+            dallalat_count += 1
+            dallalat_details.append("30. الزهرة متراجعة في العودة الشمسية (أزمة عاطفية خانقة وعودة لآلام الماضي).")
+
+        # 31
+        if sr_planets["Mars"]["is_retro"]:
+            dallalat_count += 1
+            dallalat_details.append("31. المريخ متراجع في العودة الشمسية (غضب مكتوم، عجز عن المبادرة، أو انفجار مفاجئ).")
+
+        # 32
+        if sr_planets["Saturn"]["is_retro"]:
+            dallalat_count += 1
+            dallalat_details.append("32. زحل متراجع (فترة اختبارات قاسية جداً للالتزامات الزوجية وانهيار العقود).")
+
+        # 33
+        if sr_planets["Uranus"]["is_retro"]:
+            dallalat_count += 1
+            dallalat_details.append("33. أورانوس متراجع (ثورة داخلية مكبوتة تنفجر بشكل مفاجئ لإنهاء الشراكة).")
+
+        # 34
+        if sr_planets["Pluto"]["is_retro"]:
+            dallalat_count += 1
+            dallalat_details.append("34. بلوتو متراجع (تحولات نفسية عميقة وهدم جذري للبنية التحتية للبيت والزواج).")
+
+        # 35
+        if sr_planets["Neptune"]["house"] in [7, 8, 12]:
+            dallalat_count += 1
+            dallalat_details.append("35. نبتون في بيوت الشراكة أو النهايات (خداع، أوهام، اكتشاف حقائق مخفية أو خيانة).")
+
+        # 36
+        if get_aspect(sr_planets["Neptune"]["lon"], sr_planets["Venus"]["lon"], orb=6) in ["Square", "Opposition", "Conjunction"]:
+            dallalat_count += 1
+            dallalat_details.append("36. اتصال نحس بين نبتون والزهرة (خيبة أمل كبرى في الشريك وانكشاف الأكاذيب).")
+
+        # 37
+        if sr_planets["Neptune"]["is_retro"]:
+            dallalat_count += 1
+            dallalat_details.append("37. نبتون متراجع (انقشاع الضباب ورؤية الواقع المرير للشراكة بوضوح تام).")
+
+        # 38
+        sr_h4_in_natal = get_house_of_planet(sr_cusps[3], natal_cusps)
+        if sr_h4_in_natal in [8, 12]:
+            dallalat_count += 1
+            dallalat_details.append(f"38. البيت الرابع السنوي في البيت {sr_h4_in_natal} الميلادي (انهيار الاستقرار المنزلي وخراب البيت).")
+
+        # 39
+        if sr_planets["Saturn"]["house"] == 4:
+            dallalat_count += 1
+            dallalat_details.append("39. زحل في البيت الرابع السنوي (ثقل الأجواء المنزلية، البرود، والمسؤوليات الضاغطة).")
+
+        # 40
+        if sr_planets["Mars"]["house"] == 4:
+            dallalat_count += 1
+            dallalat_details.append("40. المريخ في البيت الرابع السنوي (جِجار عائلي مستمر واشتعال النزاعات تحت السقف الواحد).")
+
+        # 41
+        if sr_planets["Uranus"]["house"] == 4:
+            dallalat_count += 1
+            dallalat_details.append("41. أورانوس في البيت الرابع السنوي (مغادرة مفاجئة للمنزل أو تغيير مسكن قهري).")
+
+        # 42
+        if sr_planets["Pluto"]["house"] == 4:
+            dallalat_count += 1
+            dallalat_details.append("42. بلوتو في البيت الرابع السنوي (أزمات جذرية تهز أساس العائلة والكيان الأسري).")
+
+        # 43
+        ruler_4 = SIGN_RULERS[int(sr_cusps[3] / 30)]
+        if sr_planets[ruler_4]["house"] in [8, 12]:
+            dallalat_count += 1
+            dallalat_details.append(f"43. حاكم البيت الرابع ({ruler_4}) في بيت الأزمات (8 أو 12) (تصدع جدران العائلة).")
+
+        # 44
+        if sr_planets["Rahu"]["house"] in [8, 12]:
+            dallalat_count += 1
+            dallalat_details.append("44. راهو في البيت 8 أو 12 السنوي (أسرار مظلمة ومخاوف وجودية متعلقة بالنهايات).")
+
+        # 45
+        if get_aspect(sr_planets["Moon"]["lon"], sr_planets["Rahu"]["lon"], orb=6) in ["Conjunction", "Square", "Opposition"]:
+            dallalat_count += 1
+            dallalat_details.append("45. اتصال سلبي بين القمر وراهو (اضطراب نفسي حاد وهواجس متعلقة بالانفصال).")
+
+        # 46
+        if get_aspect(sr_planets["Sun"]["lon"], sr_planets["Rahu"]["lon"], orb=6) in ["Conjunction", "Square", "Opposition"]:
+            dallalat_count += 1
+            dallalat_details.append("46. اتصال سلبي بين الشمس وراهو (فقدان الاعتبار والتقدير داخل الشراكة).")
+
+        # 47
+        if sr_planets["Jupiter"]["house"] in [8, 12]:
+            dallalat_count += 1
+            dallalat_details.append("47. المشتري في البيت 8 أو 12 السنوي (خسائر مالية كبرى مرتبطة بالطلاق أو تقسيم التركات).")
+
+        # 48
+        if get_aspect(sr_planets["Jupiter"]["lon"], sr_planets["Saturn"]["lon"], orb=6) in ["Square", "Opposition"]:
+            dallalat_count += 1
+            dallalat_details.append("48. تربيع أو مقابلة بين المشتري وزحل (تعارض بين التوسع والقيود، أزمة قانونية وعقود متعثرة).")
+
+        # 49
+        if sr_planets["Mercury"]["house"] == 7:
+            dallalat_count += 1
+            dallalat_details.append("49. عطارد في البيت السابع السنوي (كثرة النقاشات العקيمة والجدل القانوني المستمر مع الشريك).")
+
+        # 50
+        if sr_planets["Sun"]["house"] == 7:
+            dallalat_count += 1
+            dallalat_details.append("50. الشمس في البيت السابع السنوي بصورة سلبيّة أو محترقة (صراع إرادات وتصادم مباشر لا يمكن التسوية فيه).")
+
+        # الشرط الصارم المحدث: تحقق 4 دلالات فما فوق + تفعيل 3 ميد بوينت على الأقل
+        if dallalat_count >= 4 and mp_count >= 3:
             divorce_years.append({
                 "year": target_year,
                 "age": target_year - birth_date.year,
@@ -570,14 +672,14 @@ if submit:
     # =============================================================================
     # 7. عرض النتائج وتصدير التقرير
     # =============================================================================
-    st.subheader(f"السنوات الحرجة المرصودة لـ ({name}):")
+    st.subheader(f"السنوات الحرجة المرصودة لـ ({name}) وفقاً لشرط 3 ميد بوينت و50 دلالة:")
 
     if divorce_years:
         html_content = f"""
         <html dir="rtl" lang="ar">
         <head>
             <meta charset="utf-8">
-            <title>تقرير السنوات الحرجة والانفصال - {name}</title>
+            <title>تقرير السنوات الحرجة والانفصال (50 دلالة) - {name}</title>
             <style>
                 body {{ font-family: 'Cairo', Tahoma, sans-serif; direction: rtl; text-align: right; padding: 30px; background: #f8fafc; color: #1e293b; }}
                 h1, h2, h3 {{ color: #b91c1c; }}
@@ -586,7 +688,7 @@ if submit:
             </style>
         </head>
         <body>
-            <h1>تقرير الأزمات الزوجية والطلاق الفلكي</h1>
+            <h1>تقرير الأزمات الزوجية والطلاق الفلكي الشامل (50 دلالة)</h1>
             <p><strong>الاسم:</strong> {name}</p>
             <p><strong>تاريخ الميلاد:</strong> {birth_date} | <strong>الوقت:</strong> {birth_time}</p>
             <hr>
@@ -594,7 +696,7 @@ if submit:
         for m in divorce_years:
             html_content += f"""
             <div class="card">
-                <h3>سنة {m['year']} (العمر: {m['age']} سنة) — الحالة: {m['mp_status']} | الدلالات: {m['dallalat_count']}/25</h3>
+                <h3>سنة {m['year']} (العمر: {m['age']} سنة) — الحالة: {m['mp_status']} | الدلالات: {m['dallalat_count']}/50</h3>
                 <p><strong>تفاصيل تفعيل نقاط المنتصف (Midpoints):</strong></p>
                 <ul>
             """
@@ -602,7 +704,7 @@ if submit:
                 html_content += f"<li>{act}</li>"
             html_content += """
                 </ul>
-                <p><strong>دلالات الانفصال والمشاكل المتحققة:</strong></p>
+                <p><strong>دلالات الانفصال والمشاكل المتحققة (من أصل 50):</strong></p>
                 <ul>
             """
             for d in m['details']:
@@ -617,14 +719,14 @@ if submit:
         """
 
         st.download_button(
-            label="🖨️ تحميل تقرير الأزمات الزوجية كملف HTML للطباعة",
+            label="🖨️ تحميل تقرير الأزمات الزوجية (50 دلالة) كملف HTML للطباعة",
             data=html_content,
-            file_name=f"divorce_report_{name.replace(' ', '_')}.html",
+            file_name=f"divorce_report_50_{name.replace(' ', '_')}.html",
             mime="text/html",
         )
 
         for m in divorce_years:
-            with st.expander(f"💥 سنة {m['year']} (العمر: {m['age']} سنة) — التصنيف: [{m['mp_status']}] | عدد الدلالات: ({m['dallalat_count']}/25)"):
+            with st.expander(f"💥 سنة {m['year']} (العمر: {m['age']} سنة) — التصنيف: [{m['mp_status']}] | عدد الدلالات: ({m['dallalat_count']}/50)"):
                 st.error(f"**حالة الميد بوينت:** {m['mp_status']} (تم تفعيل {m['mp_count']} نقاط منتصف)")
 
                 st.write("**تفاصيل تفعيل نقاط المنتصف (فرق < 2°):**")
@@ -636,4 +738,4 @@ if submit:
                 for d in m["details"]:
                     st.write(f"- {d}")
     else:
-        st.success("لم يتم العثور على سنوات تتطابق فيها الشروط الصارمة (تحقق 4 دلالات طلاق فما فوق + تفعيل 2 ميد بوينت على الأقل). الخريطة تشير إلى استقرار أو غياب الأزمات الحادة.")
+        st.success("لم يتم العثور على سنوات تتطابق فيها الشروط الصارمة (تحقق 4 دلالات طلاق فما فوق + تفعيل 3 ميد بوينت على الأقل من أصل 10). الخريطة تشير إلى استقرار تام أو غياب الأزمات المدمرة.")
