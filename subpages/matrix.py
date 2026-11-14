@@ -11,11 +11,12 @@ import swisseph as swe
 from timezonefinder import TimezoneFinder
 
 # ==========================================
-# 0. تهيئة الصفحة ومسار ملفات الـ Ephemeris
+# 0. إعدادات الصفحة وتهيئة الـ Ephemeris
 # ==========================================
 st.set_page_config(
     page_title="النظام المتقدم للتنجيم الساعي",
     layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 EPHE_PATH = "./ephe"
@@ -23,10 +24,6 @@ if not os.path.exists(EPHE_PATH):
     os.makedirs(EPHE_PATH)
 
 swe.set_ephe_path(EPHE_PATH)
-
-st.title("🔮 النظام المتقدم للتنجيم الساعي (برمجة الفلكي استرو رادار)")
-st.markdown("منظومة احترافية للعمل وفق القواعد الكلاسيكية لوليام ليلي ونظام ريغومونتانوس.")
-st.markdown("---")
 
 # ==========================================
 # 1. خدمات البيانات الجغرافية والزمنية
@@ -48,7 +45,11 @@ def load_geo_data() -> Tuple[geonamescache.GeonamesCache, Dict[str, str], List[s
 
     return gc, country_map, sorted_countries, cities_by_country
 
-gc, country_map, country_list, cities_by_country = load_geo_data()
+try:
+    gc, country_map, country_list, cities_by_country = load_geo_data()
+except Exception as e:
+    st.error(f"خطأ في تحميل قاعدة البيانات الجغرافية: {e}")
+    st.stop()
 
 @st.cache_resource
 def get_tz_finder() -> TimezoneFinder:
@@ -69,7 +70,7 @@ def get_utc_julian_day(date_obj: date, time_obj: time, tz_str: str) -> float:
     )
 
 # ==========================================
-# القواميس الفلكية الشاملة (مدرسة ويليام لي)
+# 2. القواميس الفلكية والكلاسيكية الشاملة
 # ==========================================
 SIGN_NAMES = [
     "الحمل", "الثور", "الجوزاء", "السرطان", "الأسد", "العذراء",
@@ -119,7 +120,7 @@ SUBJECT_PERSPECTIVES = {
 }
 
 # ==========================================
-# الشريط الجانبي التجاري للإدخالات
+# 3. واجهة الشريط الجانبي للإدخالات
 # ==========================================
 st.sidebar.header("💼 إدارة بيانات العميل والمسألة")
 
@@ -170,6 +171,13 @@ def get_sign_and_deg(lon_deg):
     sign_name = SIGN_NAMES[sign_idx % 12]
     return sign_name, deg_in_sign
 
+# ==========================================
+# 4. محرك التحليل والواجهة الرئيسية
+# ==========================================
+st.title("🔮 النظام المتقدم للتنجيم الساعي (برمجة الفلكي استرو رادار)")
+st.markdown("منظومة احترافية متكاملة للعمل وفق القواعد الكلاسيكية لوليام ليلي ونظام ريغومونتانوس.")
+st.markdown("---")
+
 if st.button("🚀 تشغيل التحليل الفلكي التجاري المتقدم", type="primary"):
     try:
         jd = get_utc_julian_day(q_date, q_time, tz_str)
@@ -177,7 +185,6 @@ if st.button("🚀 تشغيل التحليل الفلكي التجاري الم�
         st.error(f"خطأ في حساب التوقيت والمنطقة الزمنية: {e}")
         st.stop()
 
-    # القاموس الفلكي الكلاسيكي النقي
     planets = {
         "الشمس": swe.SUN,
         "القمر": swe.MOON,
@@ -203,7 +210,6 @@ if st.button("🚀 تشغيل التحليل الفلكي التجاري الم�
             "speed": speed,
         }
 
-    # حساب دقيق للعقدة الجنوبية (الذنب)
     ketu_lon = (planet_data["الرأس (الشمالية)"]["lon"] + 180.0) % 360
     ketu_sign, ketu_deg = get_sign_and_deg(ketu_lon)
     planet_data["الذنب (الجنوبية)"] = {
@@ -214,7 +220,7 @@ if st.button("🚀 تشغيل التحليل الفلكي التجاري الم�
         "speed": planet_data["الرأس (الشمالية)"]["speed"],
     }
 
-    # حساب البيوت بنظام ريغومونتانوس (Regiomontanus)
+    # حساب البيوت بنظام ريغومونتانوس
     houses_cusps, ascmc = swe.houses_ex(jd, lat, lon, b"R")
     asc_lon = houses_cusps[0]
     asc_sign, asc_deg = get_sign_and_deg(asc_lon)
@@ -234,7 +240,6 @@ if st.button("🚀 تشغيل التحليل الفلكي التجاري الم�
     for p_name in planet_data:
         planet_data[p_name]["house"] = find_house(planet_data[p_name]["lon"])
 
-    # تحديد دلالة السائل الفعلي بناءً على اختيار العميل (البيت الأساسي أو البيت المشتق)
     if subject_house_num == 1:
         querent_sign, _ = get_sign_and_deg(houses_cusps[0])
         querent_ruler = RULERS[querent_sign]
@@ -245,7 +250,6 @@ if st.button("🚀 تشغيل التحليل الفلكي التجاري الم�
         querent_ruler = RULERS[subject_sign]
         subject_title = f"صاحب الشأن (البيت المشتق {subject_house_num} - برج {subject_sign})"
 
-    # تحديد دلالة المسؤول عنه (موضوع السؤال)
     target_cusp_lon = houses_cusps[target_house - 1]
     target_sign, _ = get_sign_and_deg(target_cusp_lon)
     quesited_ruler = RULERS[target_sign]
@@ -268,13 +272,11 @@ if st.button("🚀 تشغيل التحليل الفلكي التجاري الم�
     st.markdown("### 🛡️ التحذيرات والكراهات الفلكية (Gatekeepers & Cautions)")
 
     warnings_list = []
-
     if asc_deg < 3.0:
         warnings_list.append("⚠️ **تحذير طالع مبكر:** درجة الطالع أقل من 3 درجات (الموضوع في بدايته ولم ينضج بعد / سابق لأوانه).")
     elif asc_deg > 27.0:
         warnings_list.append("⚠️ **تحذير طالع متأخر:** درجة الطالع أكثر من 27 درجة (الموضوع متأخر جداً أو الوضع حتمي ولا رجوع فيه).")
 
-    # فحص خلو المسار للقمر (Void of Course)
     moon_lon = planet_data["القمر"]["lon"]
     moon_deg_in_sign = planet_data["القمر"]["deg"]
     degrees_left_in_sign = 30.0 - moon_deg_in_sign
@@ -377,7 +379,6 @@ if st.button("🚀 تشغيل التحليل الفلكي التجاري الم�
         else:
             score_details.append(f"اتصال بين دليل صاحب الشأن وحاكم المسؤول عنه ({subject_asp_name}) ولكنّه **منفصل (Separating)**: 0 نقاط.")
 
-    # الاحتراق والصميم
     sun_lon = planet_data["الشمس"]["lon"]
     for p_name in [querent_ruler, quesited_ruler]:
         p_lon = planet_data[p_name]["lon"]
@@ -454,7 +455,7 @@ if st.button("🚀 تشغيل التحليل الفلكي التجاري الم�
     st.write(f"- **الوقت المتوقع لتحقق المسألة:** {estimated_time}")
 
     # ==========================================
-    # تقرير HTML التجاري المطبوع للعملاء
+    # 5. تقرير HTML التجاري المطبوع للعملاء
     # ==========================================
     st.markdown("---")
 
@@ -466,7 +467,7 @@ if st.button("🚀 تشغيل التحليل الفلكي التجاري الم�
         <title>تقرير استشارات التنجيم الساعي - {client_name}</title>
         <style>
             body {{ font-family: Tahoma, Arial, sans-serif; direction: rtl; text-align: right; padding: 30px; color: #222; background-color: #fafafa; }}
-            .container {{ background: #fff; padding: 30px; border-radius: 10px; border: 1px solid #e5e7eb; max-width: 800px; margin: auto; }}
+            .container {{ background: #fff; padding: 30px; border-radius: 10px; border: 1px solid #e5e7eb; max-width: 800px; margin: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }}
             h1 {{ color: #1e3d59; font-size: 24px; border-bottom: 2px solid #1e3d59; padding-bottom: 10px; }}
             h2 {{ color: #2b580c; font-size: 18px; }}
             .box {{ background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #cbd5e1; }}
@@ -516,3 +517,13 @@ if st.button("🚀 تشغيل التحليل الفلكي التجاري الم�
         file_name=f"Horary_Report_{client_name.replace(' ', '_')}.html",
         mime="text/html"
     )
+```[cite: 1]
+
+---
+
+### ثالثاً: دليل سريع لتشغيل الكود والتحقق من نتائجه
+
+1. **متطلبات النظام البيئية:**
+   تأكد من تثبيت بايثون على جهازك، ثم قم بتثبيت الحزم البرمجية المطلوبة عبر موجه الأوامر:
+   ```bash
+   pip install streamlit pandas pytz timezonefinder geonamescache pyswisseph
