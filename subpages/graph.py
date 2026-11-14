@@ -128,43 +128,44 @@ def get_utc_julian_day(date_obj: datetime.date, time_obj: datetime.time, tz_str:
     )
 
 # ==========================================
-# 2. القواميس الفلكية وتحديد مجالات الحياة (الدعم)
+# 2. القواميس الفلكية وتحديد مجالات الحياة بدقة
 # ==========================================
 def get_life_domains(planet: str, angle: str) -> List[str]:
     domains = []
     p = planet.split(" ")[0]
     
     if p in ["الشمس", "Sun"]:
-        if "MC" in angle: domains.extend(["الشهرة والنجاح الجماهيري", "العمل والمهنة", "الثراء والوفرة المالية"])
-        elif "AC" in angle: domains.extend(["الشهرة والنجاح الجماهيري", "التعليم والدراسة"])
-        elif "DC" in angle: domains.extend(["الحب والزواج والشراكات"])
-        elif "IC" in angle: domains.extend(["الاستقرار والسكن"])
+        if "MC" in angle: domains.extend(["شهرة", "عمل", "مال"])
+        elif "AC" in angle: domains.extend(["شهرة"])
+        elif "DC" in angle: domains.extend(["زواج و حب"])
+        elif "IC" in angle: domains.extend(["استقرار"])
     elif p in ["القمر", "Moon"]:
-        if "IC" in angle: domains.extend(["الاستقرار والسكن"])
-        elif "MC" in angle: domains.extend(["الشهرة والنجاح الجماهيري"])
-        elif "DC" in angle: domains.extend(["الحب والزواج والشراكات"])
-        elif "AC" in angle: domains.extend(["الاستقرار والسكن"])
+        if "IC" in angle: domains.extend(["استقرار"])
+        elif "MC" in angle: domains.extend(["شهرة"])
+        elif "DC" in angle: domains.extend(["زواج و حب"])
+        elif "AC" in angle: domains.extend(["استقرار"])
     elif p in ["عطارد", "Mercury"]:
-        if "MC" in angle or "AC" in angle: domains.extend(["التعليم والدراسة", "العمل والمهنة"])
-        elif "DC" in angle: domains.extend(["الحب والزواج والشراكات"])
-        elif "IC" in angle: domains.extend(["التعليم والدراسة"])
+        if "MC" in angle or "AC" in angle: domains.extend(["عمل"])
+        elif "DC" in angle: domains.extend(["زواج و حب"])
     elif p in ["الزهرة", "Venus"]:
-        if "DC" in angle: domains.extend(["الحب والزواج والشراكات"])
-        elif "IC" in angle: domains.extend(["الاستقرار والسكن"])
-        elif "MC" in angle: domains.extend(["الثراء والوفرة المالية", "الشهرة والنجاح الجماهيري"])
-        elif "AC" in angle: domains.extend(["الحب والزواج والشراكات", "الشهرة والنجاح الجماهيري"])
+        if "DC" in angle: domains.extend(["زواج و حب"])
+        elif "IC" in angle: domains.extend(["استقرار"])
+        elif "MC" in angle: domains.extend(["مال", "شهرة"])
+        elif "AC" in angle: domains.extend(["زواج و حب", "شهرة"])
     elif p in ["المشتري", "Jupiter"]:
-        if "MC" in angle: domains.extend(["الثراء والوفرة المالية", "الشهرة والنجاح الجماهيري", "العمل والمهنة"])
-        elif "DC" in angle: domains.extend(["الحب والزواج والشراكات"])
-        elif "IC" in angle: domains.extend(["الاستقرار والسكن"])
-        elif "AC" in angle: domains.extend(["التعليم والدراسة", "الثراء والوفرة المالية"])
+        if "MC" in angle: domains.extend(["مال", "شهرة", "عمل"])
+        elif "DC" in angle: domains.extend(["زواج و حب"])
+        elif "IC" in angle: domains.extend(["استقرار"])
+        elif "AC" in angle: domains.extend(["مال"])
     elif p in ["المريخ", "Mars"]:
-        if "MC" in angle or "AC" in angle: domains.extend(["العمل والمهنة"])
+        if "MC" in angle or "AC" in angle: domains.extend(["عمل"])
+        elif "IC" in angle: domains.extend(["استقرار"])
     elif p in ["زحل", "Saturn"]:
-        if "MC" in angle: domains.extend(["العمل والمهنة"])
-        elif "IC" in angle: domains.extend(["الاستقرار والسكن"])
+        if "MC" in angle: domains.extend(["عمل"])
+        elif "IC" in angle: domains.extend(["استقرار"])
+        elif "DC" in angle: domains.extend(["زواج و حب"])
     
-    return list(set(domains)) if domains else ["العمل والمهنة", "الاستقرار والسكن"]
+    return list(set(domains)) if domains else ["عمل", "استقرار"]
 
 PLANET_DICTIONARY = {
     "الشمس (Sun)": {
@@ -222,7 +223,7 @@ PLANET_DICTIONARY = {
 # 3. واجهة المستخدم الاحترافية (Streamlit UI)
 # ==========================================
 st.title("🌟 النظام المتقدم الشامل للأستروكارتوغرافيا المجالية")
-st.markdown("### المسح الفلكي الجغرافي (أوربت 6 عالمياً و 1 للمدن داخل الدولة) - برمجة الفلكي استرو رادار")
+st.markdown("### التحليل الجغرافي المعمق للمدن والدول (أوربت 6 عالمياً و 1 للدولة) - برمجة الفلكي استرو رادار")
 st.markdown("---")
 
 with st.sidebar:
@@ -256,15 +257,15 @@ with st.sidebar:
     
     st.markdown("---")
     st.header("🔍 نطاق ونوع البحث")
-    search_mode = st.radio("خيارات البحث الجغرافي", ["مسح عالمي شامل لكافة دول العالم (أوربت 6)", "البحث في دولة محددة لفحص المدن (أوربت 1)"])
+    search_mode = st.radio("خيارات البحث الجغرافي", ["مسح عالمي شامل لكافة دول العالم (أوربت 6)", "البحث في دولة محددة لفحص أفضل وأسوأ المدن (أوربت 1)"])
     
     selected_target_country = None
-    if search_mode == "البحث في دولة محددة لفحص المدن (أوربت 1)":
+    if search_mode == "البحث في دولة محددة لفحص أفضل وأسوأ المدن (أوربت 1)":
         selected_target_country = st.selectbox("اختر الدولة المستهدفة للتحليل", sorted_country_names)
 
     st.markdown("---")
     if selected_target_country:
-        st.info("ℹ️ **الأوربت المعتمد:** تم ضبط الأوربت على **$1.0^\circ$** نظراً لاختيار فحص المدن داخل الدولة المحددة بدقة.")
+        st.info("ℹ️ **الأوربت المعتمد:** تم ضبط الأوربت على **$1.0^\circ$** لفحص المدن داخل الدولة بدقة عالية.")
     else:
         st.info("ℹ️ **الأوربت المعتمد:** تم ضبط الأوربت على **$6.0^\circ$** للمسح العالمي الشامل للدول.")
 
@@ -274,7 +275,6 @@ with st.sidebar:
 # 4. محرك الحسابات الفلكية وتحليل أداء الدول والمدن
 # ==========================================
 if analyze_btn:
-    # التعديل المطلوب: الأوربت العالمي 6، وأوربت الدولة الواحدة للمدن 1
     FIXED_ORB = 1.0 if selected_target_country else 6.0
     
     with st.spinner("جاري إجراء الحسابات الفلكية المكثفة وتحليل الأثر الكوكبي ومجالات الحياة بدقة عالية..."):
@@ -360,34 +360,46 @@ if analyze_btn:
             if not raw_hits:
                 st.warning(f"⚠️ **منطقة محايدة فلكياً:** لا يمر أي خط كوكبي رئيسي ضمن النطاق المؤثر ($\\le 1.0^\circ$) عبر مدن {selected_target_country}.")
             else:
-                # فصل وترتيب أسوأ المدن (Malefic أولاً أو حسب الأورب والأثر)
-                malefic_hits = [h for h in raw_hits if h["type"] == "malefic"]
                 benefic_hits = [h for h in raw_hits if h["type"] == "benefic"]
+                malefic_hits = [h for h in raw_hits if h["type"] == "malefic"]
                 
-                # ترتيب أسوأ المدن (حتى 25 مدينة)
+                # أفضل 25 مدينة
+                sorted_best_cities = sorted(benefic_hits, key=lambda x: x["orb"])[:25]
+                # أسوأ 25 مدينة
                 sorted_worst_cities = sorted(malefic_hits, key=lambda x: x["orb"])[:25]
-                # إذا لم تكتمل الـ 25 من النحس، نضيف أقرب المدن الداعمة تنازلياً لتغطية جدول تحليلي شامل للمدن
-                if len(sorted_worst_cities) < 25:
-                    remaining_count = 25 - len(sorted_worst_cities)
-                    sorted_benefic_fallback = sorted(benefic_hits, key=lambda x: x["orb"], reverse=True)[:remaining_count]
-                    display_cities_list = sorted_worst_cities + sorted_benefic_fallback
-                else:
-                    display_cities_list = sorted_worst_cities
 
-                st.markdown("#### ⚠️ جدول أسوأ المدن (حتى 25 مدينة متأثرة بالضغوط):")
-                df_country = pd.DataFrame([{
-                    "المدينة": h["city_name"],
-                    "الكوكب المؤثر": h["planet"],
-                    "الوتد": h["angle"],
-                    "البعد (Orb)": f"{h['orb']}°",
-                    "المجالات المتأثرة": ", ".join(h["domains"]),
-                    "نوع التأثير": "ضاغط/تحدي" if h["type"] == "malefic" else "داعم/إيجابي"
-                } for h in display_cities_list])
-                st.dataframe(df_country, use_container_width=True)
+                col_t1, col_t2 = st.columns(2)
+                with col_t1:
+                    st.markdown("#### 🌟 أفضل 25 مدينة داعمة:")
+                    if sorted_best_cities:
+                        df_best_c = pd.DataFrame([{
+                            "المدينة": h["city_name"],
+                            "الكوكب": h["planet"],
+                            "الوتد": h["angle"],
+                            "Orb": f"{h['orb']}°",
+                            "المجالات": ", ".join(h["domains"])
+                        } for h in sorted_best_cities])
+                        st.dataframe(df_best_c, use_container_width=True)
+                    else:
+                        st.info("لا توجد مدن داعمة ضمن الأوربت المحدد.")
 
-                # تحديد أفضل مدينة وأسوأ مدينة مع السبب الفلكي التفصيلي
-                best_city = min(benefic_hits, key=lambda x: x["orb"]) if benefic_hits else None
-                worst_city = min(malefic_hits, key=lambda x: x["orb"]) if malefic_hits else None
+                with col_t2:
+                    st.markdown("#### ⚠️ أسوأ 25 مدينة ضاغطة:")
+                    if sorted_worst_cities:
+                        df_worst_c = pd.DataFrame([{
+                            "المدينة": h["city_name"],
+                            "الكوكب الضاغط": h["planet"],
+                            "الوتد": h["angle"],
+                            "Orb": f"{h['orb']}°",
+                            "المجالات المتأثرة": ", ".join(h["domains"])
+                        } for h in sorted_worst_cities])
+                        st.dataframe(df_worst_c, use_container_width=True)
+                    else:
+                        st.success("لا توجد مدن ذات تأثيرات ضاغطة سلبية حادة.")
+
+                # تحديد أفضل مدينة وأسوأ مدينة مع السبب التفصيلي
+                best_city = sorted_best_cities[0] if sorted_best_cities else None
+                worst_city = sorted_worst_cities[0] if sorted_worst_cities else None
 
                 st.markdown("---")
                 st.markdown("### 💎 الخلاصة التحليلية: أفضل وأسوأ مدينة في الدولة المختارة")
@@ -401,11 +413,9 @@ if analyze_btn:
                             <p><b>الكوكب الداعم:</b> {best_city['planet']} على خط {best_city['angle']}</p>
                             <p><b>نطاق الدقة (Orb):</b> {best_city['orb']}°</p>
                             <p><b>مجالات الدعم:</b> {', '.join(best_city['domains'])}</p>
-                            <p><b>السبب الفلكي:</b> تقاطع كوكب سعد (الشمس، الزهرة، أو المشتري) بدقة عالية يمنح تدفقاً وطاقة إيجابية في هذه المجالات دون عراقيل.</p>
+                            <p><b>السبب الفلكي:</b> تقاطع كوكب سعد (الشمس، الزهرة، أو المشتري) بدقة عالية يمنح تدفقاً وطاقة إيجابية في هذه المجالات (مثل الزواج و الحب، الشهرة، والمال).</p>
                         </div>
                         """, unsafe_allow_html=True)
-                    else:
-                        st.info("لا توجد مدينة ذات تأثير داعم رئيسي ضمن الأوربت المحدد.")
 
                 with col_w:
                     if worst_city:
@@ -418,23 +428,23 @@ if analyze_btn:
                             <p><b>السبب الفلكي:</b> تأثير كوكب نحس أو ضاغط (زحل أو المريخ) يولد اختبارات قاسية وضغوطاً مستمرة في هذه المجالات الحياتية.</p>
                         </div>
                         """, unsafe_allow_html=True)
-                    else:
-                        st.success("لا توجد مدن ذات تأثيرات ضاغطة سلبية حادة داخل الدولة ضمن الأوربت المحدد.")
 
-                # تجهيز تقرير الـ HTML الخاص بالدولة المحددة مع خيار الطباعة والتنزيل
+                # تجهيز تقرير الـ HTML الخاص بالدولة المحددة مع أفضل وأسوأ 25 مدينة
                 html_country_content = f"""
                 <!DOCTYPE html>
                 <html lang="ar" dir="rtl">
                 <head>
                     <meta charset="UTF-8">
-                    <title>تقرير التحليل الفلكي لـ {selected_target_country} - {name}</title>
+                    <title>تقرير التحليل الفلكي الشامل لـ {selected_target_country} - {name}</title>
                     <style>
                         body {{ font-family: 'Tahoma', sans-serif; margin: 40px; background: #f4f6f7; color: #2c3e50; line-height: 1.6; }}
                         .header {{ text-align: center; border-bottom: 3px solid #2c3e50; padding-bottom: 25px; background: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }}
                         h1 {{ color: #1a252f; margin-bottom: 5px; }}
                         .section {{ background: #ffffff; padding: 25px; margin-top: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }}
+                        .card-best {{ border-right: 6px solid #27ae60; padding: 15px; margin: 15px 0; background: #f1f9f5; border-radius: 6px; }}
                         .card-worst {{ border-right: 6px solid #c0392b; padding: 15px; margin: 15px 0; background: #fdf3f2; border-radius: 6px; }}
-                        .domain-badge {{ background: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 4px; font-size: 12px; margin-left: 5px; display: inline-block; margin-top: 4px; }}
+                        .domain-badge-best {{ background: #dcfce7; color: #166534; padding: 3px 8px; border-radius: 4px; font-size: 12px; margin-left: 5px; display: inline-block; margin-top: 4px; }}
+                        .domain-badge-worst {{ background: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 4px; font-size: 12px; margin-left: 5px; display: inline-block; margin-top: 4px; }}
                         .footer {{ text-align: center; margin-top: 40px; color: #7f8c8d; font-size: 13px; }}
                     </style>
                 </head>
@@ -445,17 +455,34 @@ if analyze_btn:
                     </div>
                     
                     <div class="section">
-                        <h2>⚠️ جدول أسوأ المدن في الدولة</h2>
+                        <h2>🌟 أفضل 25 مدينة داعمة</h2>
                 """
                 
-                for idx, h in enumerate(display_cities_list):
-                    badges = "".join([f'<span class="domain-badge">⚠️ {d}</span>' for d in h['domains']])
+                for idx, h in enumerate(sorted_best_cities):
+                    badges = "".join([f'<span class="domain-badge-best">✨ {d}</span>' for d in h['domains']])
+                    html_country_content += f"""
+                    <div class="card-best">
+                        <h3 style="margin-top:0; color: #27ae60;">المركز {idx+1}: مدينة {h['city_name']}</h3>
+                        <p><b>الكوكب الداعم:</b> {h['planet']} | <b>الوتد:</b> {h['angle']} | <b>Orb:</b> {h['orb']}°</p>
+                        <p><b>مجالات الدعم (زواج و حب، شهرة، عمل، استقرار، مال):</b> {badges}</p>
+                        <p style="margin-top: 8px;"><b>التأثير:</b> {h['desc']}</p>
+                    </div>
+                    """
+                
+                html_country_content += """
+                    </div>
+                    <div class="section">
+                        <h2>⚠️ أسوأ 25 مدينة ضاغطة</h2>
+                """
+
+                for idx, h in enumerate(sorted_worst_cities):
+                    badges = "".join([f'<span class="domain-badge-worst">⚠️ {d}</span>' for d in h['domains']])
                     html_country_content += f"""
                     <div class="card-worst">
                         <h3 style="margin-top:0; color: #c0392b;">المركز {idx+1}: مدينة {h['city_name']}</h3>
-                        <p><b>الكوكب المؤثر:</b> {h['planet']} | <b>الوتد:</b> {h['angle']} | <b>Orb:</b> {h['orb']}°</p>
+                        <p><b>الكوكب الضاغط:</b> {h['planet']} | <b>الوتد:</b> {h['angle']} | <b>Orb:</b> {h['orb']}°</p>
                         <p><b>المجالات المتأثرة:</b> {badges}</p>
-                        <p style="margin-top: 8px;"><b>التأثير:</b> {h['desc']}</p>
+                        <p style="margin-top: 8px;"><b>التأثير والسبب:</b> {h['desc']}</p>
                     </div>
                     """
                     
@@ -470,7 +497,7 @@ if analyze_btn:
 
                 st.markdown("---")
                 b64_c_html = base64.b64encode(html_country_content.encode("utf-8")).decode("utf-8")
-                c_href = f'<a href="data:text/html;base64,{b64_c_html}" download="AstroCartography_{selected_target_country}_{name.replace(" ", "_")}.html" style="text-decoration: none;"><button style="padding: 12px 25px; background-color: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold;">📥 تنزيل تقرير HTML الخاص بـ {selected_target_country} (جاهز للطباعة والـ PDF)</button></a>'
+                c_href = f'<a href="data:text/html;base64,{b64_c_html}" download="AstroCartography_Deep_Cities_{selected_target_country}_{name.replace(" ", "_")}.html" style="text-decoration: none;"><button style="padding: 12px 25px; background-color: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold;">📥 تنزيل تقرير HTML الشامل لـ {selected_target_country} (جاهز للطباعة والـ PDF)</button></a>'
                 st.markdown(c_href, unsafe_allow_html=True)
 
         else:
