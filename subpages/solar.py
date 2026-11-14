@@ -2,12 +2,13 @@ from __future__ import annotations
 import html
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
-from typing import NamedTuple, List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any
 import traceback
 
 import geonamescache
 import libephemeris as swe
 from timezonefinder import TimezoneFinder
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import os
 import streamlit as st
 
@@ -45,7 +46,8 @@ except Exception:
 swe.set_ephe_path(APP_DIR)
 
 # ==================== البيانات والثوابت والهياكل ====================
-class City(NamedTuple):
+@dataclass
+class City:
     geonameid: str
     name: str
     country_code: str
@@ -53,6 +55,12 @@ class City(NamedTuple):
     longitude: float
     admin1: str
     population: int
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+    
+    def get(self, key, default=None):
+        return getattr(self, key, default)
 
 @dataclass
 class USMRow:
@@ -73,8 +81,9 @@ class SolarChart:
     planet_rows: list[dict]
     house_system: str = "Whole Sign (كل برج بيت)"
 
-# ==================== تحميل البيانات الجغرافية (بدون كاش لتجنب أخطاء Serialization للـ NamedTuple) ====================
+# ==================== تحميل البيانات الجغرافية ====================
 
+@st.cache_data
 def load_cities():
     gc = geonamescache.GeonamesCache()
     cities_list = []
@@ -93,6 +102,7 @@ def load_cities():
             )
     return cities_list
 
+@st.cache_data
 def load_countries():
     gc = geonamescache.GeonamesCache()
     return gc.get_countries()
@@ -608,7 +618,7 @@ def main():
 
     st.divider()
 
-    if st.button("تحليل واستخراج التقرير", use_container_width=True):
+    if st.button("تحليل واستخراج التقرير", width="stretch"):
         if not b_city or not r_city:
             st.error("يرجى اختيار المدن أولاً.")
             return
@@ -677,7 +687,7 @@ def main():
                     data=report_html_data.encode("utf-8"),
                     file_name=f"Full_Report_{name_input}_{t_year}.html",
                     mime="text/html",
-                    use_container_width=True
+                    width="stretch"
                 )
 
             except Exception as ex:
