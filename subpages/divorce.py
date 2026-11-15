@@ -343,7 +343,7 @@ default_sr_country_idx = country_list.index("United Arab Emirates") if "United A
 
 with col1:
     name = st.text_input("اسم صاحب/ة الخريطة", "ملهم")
-    birth_date = st.date_input("تاريخ الميلاد", value=datetime.date(1985, 4, 17), min_value=datetime.date(1950, 1, 1))
+    birth_date = st.date_input("تاريخ الميلاد", value=datetime.date(2010, 4, 17), min_value=datetime.date(1950, 1, 1))
     birth_time = st.time_input("ساعة الميلاد بدقة", value=datetime.time(14, 30), step=datetime.timedelta(minutes=1))
 
 with col2:
