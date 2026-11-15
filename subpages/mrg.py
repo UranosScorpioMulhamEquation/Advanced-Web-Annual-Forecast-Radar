@@ -1,4 +1,3 @@
-# unified_astrology_pro_app.py
 """
 حاسبة التنجيم الفلكي الشاملة والمتكاملة للزواج والحمل والإنجاب (100 دلالة فلكية تخصصية)
 وفقاً للتنجيم الغربي، عودة الشمس (Solar Return)، ونقاط المنتصف والمحاور (Midpoints Axis) واشتقاق البيوت.
@@ -241,6 +240,30 @@ def check_midpoint_axis_activation(p_lon, midpoint_lon, orb=2.0):
 
 def get_sign_idx(lon):
     return int(lon / 30) % 12
+
+def calculate_expected_months(target_year, birth_date, active_houses, primary_planet):
+    """
+    تقدير الأشهر المتوقعة للحدث خلال سنة العودة الشمسية بناءً على مواقع الكواكب والبيوت الفعالة.
+    يبدأ العام الفلكي من تاريخ الميلاد في سنة target_year ويستمر 12 شهراً.
+    """
+    birth_month = birth_date.month
+    months_ar = [
+        "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
+        "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"
+    ]
+    derived_months = []
+    base_month = birth_month
+    
+    for h in active_houses:
+        target_m = ((base_month + h - 2) % 12) + 1
+        derived_months.append(target_m)
+    
+    if not derived_months:
+        derived_months = [base_month, (base_month % 12) + 1]
+        
+    derived_months = sorted(list(set(derived_months)))
+    month_names = [months_ar[m - 1] for m in derived_months]
+    return " و ".join(month_names), derived_months
 
 # =============================================================================
 # 4. وظائف اشتقاق مواصفات الشريك (للإرتباط والزواج)
@@ -486,12 +509,12 @@ def derive_partner_social_details(natal_cusps, natal_planets):
     }
 
 # =============================================================================
-# 5. محرك الـ 50 دلالة فلكية للزواج والارتباط
+# 5. محرك الـ 50 دلالة فلكية للزواج والارتباط (شامل لجميع نقاط الميدبوينت للزواج)
 # =============================================================================
 def evaluate_marriage_50_indicators(natal_data, sr_data, general_orb=1.0, midpoint_orb=2.0):
     n_cusps = natal_data['cusps']
     n_planets = natal_data['planets']
-    n_midpoint = natal_data['midpoint_lon']
+    n_marriage_midpoints = natal_data['marriage_midpoints']
     
     sr_cusps = sr_data['cusps']
     sr_planets = sr_data['planets']
@@ -637,29 +660,46 @@ def evaluate_marriage_50_indicators(natal_data, sr_data, general_orb=1.0, midpoi
     d49 = m49_v or m49_j
     indicators.append({"id": 49, "code": "M49", "category": "العقد والسهام", "name_ar": "تفعيل سهم الزواج (Part of Marriage) مع السعدين", "description": "سهم السعادة الزوجية يتلقى دعماً من أدلة الخير.", "is_active": d49, "detail": "سهم الزواج مفعل" if d49 else "غير مفعل"})
 
-    activated_midpoint_list = []
-    for p_name, p_data in sr_planets.items():
-        p_lon = p_data['lon']
-        is_active, aspect_type, dist = check_midpoint_axis_activation(p_lon, n_midpoint, orb=midpoint_orb)
-        if is_active:
-            activated_midpoint_list.append({
-                "planet": p_name,
-                "planet_ar": PLANET_NAMES_AR.get(p_name, p_name),
-                "lon": p_lon,
-                "sign_name": ZODIAC_NAMES_AR[int(p_lon/30)%12],
-                "deg_in_sign": p_lon % 30,
-                "diff": dist,
-                "aspect_type": aspect_type
+    # تقييم تفعيل نقاط الميدبوينت للزواج واللقاء الجسدي (اقتران 0° أو مقابلة 180° بأورب < 2.0°)
+    activated_marriage_midpoints = []
+    for mp_item in n_marriage_midpoints:
+        mp_name = mp_item['name']
+        mp_lon = mp_item['lon']
+        mp_sign_idx = int(mp_lon / 30) % 12
+        
+        activators_for_this_mp = []
+        for p_name, p_data in sr_planets.items():
+            p_lon = p_data['lon']
+            is_act, aspect_label, diff_val = check_conjunction_or_opposition(p_lon, mp_lon, orb=midpoint_orb)
+            if is_act:
+                p_sign_idx = int(p_lon / 30) % 12
+                activators_for_this_mp.append({
+                    "planet": p_name,
+                    "planet_ar": PLANET_NAMES_AR.get(p_name, p_name),
+                    "sign_name": ZODIAC_NAMES_AR[p_sign_idx],
+                    "deg_in_sign": p_lon % 30,
+                    "aspect_type": aspect_label,
+                    "diff": diff_val
+                })
+        if activators_for_this_mp:
+            activators_for_this_mp.sort(key=lambda x: x['diff'])
+            activated_marriage_midpoints.append({
+                "midpoint_name": mp_name,
+                "midpoint_lon": mp_lon,
+                "midpoint_sign": ZODIAC_NAMES_AR[mp_sign_idx],
+                "midpoint_deg": mp_lon % 30,
+                "activators": activators_for_this_mp,
+                "primary_activator": activators_for_this_mp[0]
             })
 
-    d50 = len(activated_midpoint_list) > 0
-    indicators.append({"id": 50, "code": "M50", "category": "العقد والسهام", "name_ar": "تفعيل محور نقطة منتصف الشمس/القمر الميلادية (Sun/Moon Midpoint Axis)", "description": "الشرط المحوري؛ وقوع كوكب سنوي في نفس برج الميد بوينت أو المقابل أو التربيع (أورب < 2.0°).", "is_active": d50, "detail": f"الكواكب المفعلة: {len(activated_midpoint_list)}" if d50 else "لم يتم التفعيل"})
+    d50 = len(activated_marriage_midpoints) >= 1
+    indicators.append({"id": 50, "code": "M50", "category": "العقد والسهام", "name_ar": "تفعيل نقاط منتصف الزواج واللقاء الجسدي (تفعيل 1 ميد بوينت على الأقل بالاقتران أو المقابلة أورب < 2.0°)", "description": "الشرط المحوري للزواج؛ تفعيل نقطة منتصف واحدة على الأقل من نقاط الزواج واللقاء الجسدي الـ 5.", "is_active": d50, "detail": f"الميد بوينت المفعلة: {len(activated_marriage_midpoints)}" if d50 else "لم يتم التفعيل"})
 
     active_count = sum(1 for ind in indicators if ind['is_active'])
     return {
         "active_count": active_count,
         "indicators": indicators,
-        "activated_midpoints": activated_midpoint_list
+        "activated_marriage_midpoints": activated_marriage_midpoints
     }
 
 # =============================================================================
@@ -770,7 +810,7 @@ def evaluate_childbirth_50_indicators(natal_data, sr_data, general_orb=1.5, midp
     indicators.append({"id": 24, "code": "P24", "category": "اتصالات كواكب", "name_ar": "اتصال سعيد بين القمر والزهرة السنويين", "description": "تناغم الأنوثة والخصوبة والفرحة بقدوم مولود.", "is_active": m24, "detail": f"{asp24} بفارق {diff24:.2f}°" if m24 else "غير متصل"})
 
     m25, asp25, diff25 = is_soft_or_conjunction(sr_planets['Jupiter']['lon'], sr_planets['Venus']['lon'], orb=general_orb)
-    indicators.append({"id": 25, "code": "P25", "category": "اتصالات كواكب", "name_ar": "اتصال سعيد بين المشتري والزهرة السنويين", "description": "سعد السعدين؛ تيسير الحمل والولادة.", "is_active": m25, "detail": f"{asp25} بفارق {diff25:.2f}°" if m25 else "غير متصل"})
+    indicators.append({"id": 25, "code": "P25", "category": "اتصالات كواكب", "name_ar": "اتصال سعيد بين والمشتري والزهرة السنويين", "description": "سعد السعدين؛ تيسير الحمل والولادة.", "is_active": m25, "detail": f"{asp25} بفارق {diff25:.2f}°" if m25 else "غير متصل"})
 
     m26, asp26, diff26 = is_soft_or_conjunction(sr_planets['Sun']['lon'], sr_planets['Jupiter']['lon'], orb=general_orb)
     indicators.append({"id": 26, "code": "P26", "category": "اتصالات كواكب", "name_ar": "اتصال سعيد بين الشمس والمشتري السنويين", "description": "نمو الحياة وازدهار الذرية وتيسير الإنجاب.", "is_active": m26, "detail": f"{asp26} بفارق {diff26:.2f}°" if m26 else "غير متصل"})
@@ -848,13 +888,9 @@ def evaluate_childbirth_50_indicators(natal_data, sr_data, general_orb=1.5, midp
     }
 
 # =============================================================================
-# 7. مولدات التقارير HTML (تقارير منفصلة للزواج وللحمل/الإنجاب)
+# 7. مولدات التقارير HTML (تقارير منفصلة للزواج وللحمل/الإنجاب مع الأشهر المتوقعة)
 # =============================================================================
 def generate_marriage_html_report(native_info, candidate_years):
-    report_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-    gender_title = "العروس / الزوجة المستقبلية" if native_info['gender'] == "ذكر" else "العريس / الزوج المستقبلي"
-    partner_noun = "العروس" if native_info['gender'] == "ذكر" else "العريس"
-
     html = f"""<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -889,7 +925,7 @@ def generate_marriage_html_report(native_info, candidate_years):
 <div class="container">
     <div class="header">
         <h1>تقرير دراسة سنوات الزواج والارتباط الفلكي</h1>
-        <p>تحليل دقيق يعتمد على محور نقطة منتصف الشمس/القمر والـ 50 دلالة زواج</p>
+        <p>تحليل دقيق يعتمد على نقاط منتصف الزواج واللقاء الجسدي والـ 50 دلالة زواج</p>
     </div>
     <div class="card">
         <div class="card-header">البيانات الأساسية لصاحب/ة الخريطة</div>
@@ -899,7 +935,6 @@ def generate_marriage_html_report(native_info, candidate_years):
             <div class="data-item"><label>تاريخ الميلاد</label><span>{native_info['birth_date']} | {native_info['birth_time']}</span></div>
             <div class="data-item"><label>مكان الميلاد</label><span>{native_info['birth_city']}</span></div>
             <div class="data-item"><label>مكان السنوية</label><span>{native_info['sr_city']}</span></div>
-            <div class="data-item"><label>ميد بوينت (شمس/قمر)</label><span>{native_info['midpoint_deg']:.2f}° {native_info['midpoint_sign']}</span></div>
         </div>
     </div>
 """
@@ -914,7 +949,6 @@ def generate_marriage_html_report(native_info, candidate_years):
             p_wlth = y['partner_wealth']
             p_wed = y['wedding_style']
             p_soc = y['partner_social']
-            prim = y['primary_activator']
 
             html += f"""
     <div class="year-section">
@@ -922,7 +956,19 @@ def generate_marriage_html_report(native_info, candidate_years):
             <h2>سنة الزواج: {y['year']} ميلادي (العمر: {y['age']} سنة)</h2>
             <div style="background: #c59b27; color: #0d1b2a; padding: 4px 12px; border-radius: 15px; font-weight: 800;">تحقق {y['active_count']} من 50 دلالة</div>
         </div>
-        <p style="margin-bottom: 15px; color: #334155;"><strong>الكوكب المفعل للمحور:</strong> {p_desc['planet_ar']} — {prim['aspect_type']} (بفارق: {y['midpoint_diff_str']})</p>
+        <div style="background: #e0f2fe; padding: 12px; border-radius: 8px; border-right: 4px solid #0284c7; margin-bottom: 15px;">
+            <p style="margin: 0; color: #0369a1; font-weight: 700;">📅 الأشهر المتوقعة للحدث: {y['expected_months']}</p>
+        </div>
+        <div style="background: #fef3c7; padding: 12px; border-radius: 8px; border-right: 4px solid #d97706; margin-bottom: 15px;">
+            <h4 style="color: #92400e; margin-bottom: 5px;">🎯 نقاط منتصف الزواج واللقاء الجسدي المفعلة (أورب < 2.0°):</h4>
+            <ul style="padding-right: 20px; margin: 0;">
+            """
+            for amp in y['activated_marriage_midpoints']:
+                acts_str = " ، ".join([f"كوكب <strong>{a['planet_ar']}</strong> ({a['aspect_type']} في برج {a['sign_name']} بفارق {a['diff']:.2f}°)" for a in amp['activators']])
+                html += f"<li>ميد بوينت [{amp['midpoint_name']}]: تم تفعيله بواسطة {acts_str}.</li>"
+            html += f"""
+            </ul>
+        </div>
         
         <div class="traits-grid">
             <div class="trait-box">
@@ -1004,8 +1050,6 @@ def generate_marriage_html_report(native_info, candidate_years):
     return html
 
 def generate_childbirth_html_report(native_info, candidate_years):
-    report_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-
     html = f"""<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -1060,9 +1104,12 @@ def generate_childbirth_html_report(native_info, candidate_years):
             <h2>سنة الحمل والإنجاب: {y['year']} ميلادي (العمر: {y['age']} سنة)</h2>
             <div style="background: #10b981; color: #fff; padding: 4px 12px; border-radius: 15px; font-weight: 800;">تفعيل {y['midpoints_count']} ميد بوينت | {y['active_count']} دلالة</div>
         </div>
+        <div style="background: #e0f2fe; padding: 12px; border-radius: 8px; border-right: 4px solid #0284c7; margin-bottom: 15px;">
+            <p style="margin: 0; color: #0369a1; font-weight: 700;">📅 الأشهر المتوقعة للحمل أو الإنجاب: {y['expected_months']}</p>
+        </div>
         <div style="background: #fef3c7; padding: 12px; border-radius: 8px; border-right: 4px solid #d97706; margin-bottom: 15px;">
             <h4 style="color: #92400e; margin-bottom: 5px;">🎯 نقاط المنتصف المفعلة بالاقتران أو المقابلة (أورب < 2.0°):</h4>
-            <ul style="padding-right: 20px;">
+            <ul style="padding-right: 20px; margin: 0;">
             """
             for mp in y['activated_midpoints']:
                 acts_str = " ، ".join([f"كوكب <strong>{a['planet_ar']}</strong> ({a['aspect_type']} في برج {a['sign_name']} بفارق {a['diff']:.2f}°)" for a in mp['activators']])
@@ -1119,7 +1166,7 @@ def generate_childbirth_html_report(native_info, candidate_years):
 st.markdown("""
 <div class="main-header">
     <h1>حاسبة احتمالات سنوات الزواج والحمل والإنجاب الفلكية الشاملة</h1>
-    <p>تحليل فلكي غربي متقدم يدمج محور نقطة المنتصف، العودة الشمسية، والـ 100 دلالة تخصصية</p>
+    <p>تحليل فلكي غربي متقدم يدمج نقاط منتصف الزواج والإنجاب، العودة الشمسية، والـ 100 دلالة تخصصية</p>
     <p>تطوير الفلكي استرو رادار</p>
 </div>
 """, unsafe_allow_html=True)
@@ -1159,13 +1206,13 @@ with st.container():
 # الثوابت الفلكية الصارمة المعتمدة
 FIXED_ASPECT_ORB = 1.0       # أورب الاتصالات العامة
 FIXED_MIDPOINT_ORB = 2.0     # أورب الميد بوينت
-FIXED_MIN_MARRIAGE_IND = 5   # 5 دلالات للزواج
+FIXED_MIN_MARRIAGE_IND = 3   # 3 دلالات للزواج
 FIXED_MIN_CHILD_IND = 3      # 3 دلالات للحمل
 SCAN_AGE_MIN = 16            # العمر من 16 سنة
 SCAN_AGE_MAX_MARRIAGE = 56   # لغاية 56 سنة للزواج
 SCAN_AGE_MAX_CHILDBIRTH = 42 # لغاية 42 سنة للإنجاب
 
-st.info("📌 **القواعد الفلكية الصارمة المطبقة آلياً:** تحليل مزدوج (الزواج والحمل والإنجاب) بمعايير دقيقة لنقاط المنتصف والاتصالات السنوية.")
+st.info("📌 **القواعد الفلكية الصارمة المطبقة آلياً:** تحليل مزدوج (الزواج والحمل والإنجاب) باستخدام نقاط منتصف الزواج واللقاء الجسدي ونقاط الإنجاب بمعايير الاقتران والمقابلة (أورب < 2.0°).")
 
 submit = st.button("🔮 بدء التحليل الفلكي الشامل (الزواج + الحمل والإنجاب)", type="primary")
 
@@ -1206,10 +1253,18 @@ if submit:
 
     natal_sun = natal_planets['Sun']['lon']
     natal_moon = natal_planets['Moon']['lon']
-    
-    marriage_midpoint_lon = (natal_sun + natal_moon) / 2.0
-    if abs(natal_sun - natal_moon) > 180:
-        marriage_midpoint_lon = (marriage_midpoint_lon + 180) % 360
+    natal_venus = natal_planets['Venus']['lon']
+    natal_mars = natal_planets['Mars']['lon']
+    natal_jupiter = natal_planets['Jupiter']['lon']
+
+    # نقاط المنتصف الـ 5 للزواج واللقاء الجسدي
+    marriage_midpoints = [
+        {"name": "الشمس / القمر", "lon": calculate_midpoint(natal_sun, natal_moon)},
+        {"name": "الزهرة / المريخ", "lon": calculate_midpoint(natal_venus, natal_mars)},
+        {"name": "الشمس / الزهرة", "lon": calculate_midpoint(natal_sun, natal_venus)},
+        {"name": "القمر / الزهرة", "lon": calculate_midpoint(natal_moon, natal_venus)},
+        {"name": "المشتري / الزهرة", "lon": calculate_midpoint(natal_jupiter, natal_venus)},
+    ]
 
     # نقاط المنتصف الـ 7 للإنجاب
     childbirth_midpoints = [
@@ -1225,7 +1280,7 @@ if submit:
     natal_data = {
         'cusps': natal_cusps,
         'planets': natal_planets,
-        'midpoint_lon': marriage_midpoint_lon,
+        'marriage_midpoints': marriage_midpoints,
         'childbirth_midpoints': childbirth_midpoints
     }
 
@@ -1260,14 +1315,18 @@ if submit:
         sr_data = {'cusps': sr_cusps, 'planets': sr_planets}
         eval_m = evaluate_marriage_50_indicators(natal_data, sr_data, general_orb=FIXED_ASPECT_ORB, midpoint_orb=FIXED_MIDPOINT_ORB)
 
-        if eval_m['activated_midpoints'] and eval_m['active_count'] >= FIXED_MIN_MARRIAGE_IND:
-            prim = eval_m['activated_midpoints'][0]
-            p_phys = get_physical_appearance(prim['planet'], prim['lon'], partner_title=partner_title)
+        if eval_m['activated_marriage_midpoints'] and eval_m['active_count'] >= FIXED_MIN_MARRIAGE_IND:
+            amp = eval_m['activated_marriage_midpoints'][0]
+            prim = amp['primary_activator']
+            p_phys = get_physical_appearance(prim['planet'], sr_planets[prim['planet']]['lon'], partner_title)
             p_car = derive_partner_career(natal_cusps, natal_planets)
             p_int = derive_partner_intimacy(natal_cusps, natal_planets)
             p_wlth = derive_partner_wealth(natal_cusps, natal_planets)
             p_wed = derive_wedding_party(natal_cusps, sr_cusps[0], sr_planets)
             p_soc = derive_partner_social_details(natal_cusps, natal_planets)
+
+            active_h_m = [7, 5, 1] if sr_planets['Venus']['house'] in [7, 5, 1] else [7]
+            exp_months_str, _ = calculate_expected_months(target_year, birth_date, active_h_m, prim['planet'])
 
             diff_str = f"{prim['diff']:.2f}°"
             marriage_years.append({
@@ -1275,8 +1334,8 @@ if submit:
                 "age": target_year - birth_date.year,
                 "active_count": eval_m['active_count'],
                 "indicators": eval_m['indicators'],
-                "primary_activator": prim,
-                "midpoint_diff_str": diff_str,
+                "activated_marriage_midpoints": eval_m['activated_marriage_midpoints'],
+                "expected_months": exp_months_str,
                 "partner_physical": p_phys,
                 "partner_career": p_car,
                 "partner_intimacy": p_int,
@@ -1313,13 +1372,17 @@ if submit:
         eval_c = evaluate_childbirth_50_indicators(natal_data, sr_data, general_orb=1.5, midpoint_orb=FIXED_MIDPOINT_ORB)
 
         if len(eval_c['activated_midpoints']) >= 2 and eval_c['active_count'] >= FIXED_MIN_CHILD_IND:
+            active_h_c = [5, 4, 1, 11]
+            exp_months_c_str, _ = calculate_expected_months(target_year, birth_date, active_h_c, "Moon")
+            
             childbirth_years.append({
                 "year": target_year,
                 "age": target_year - birth_date.year,
                 "active_count": eval_c['active_count'],
                 "indicators": eval_c['indicators'],
                 "activated_midpoints": eval_c['activated_midpoints'],
-                "midpoints_count": len(eval_c['activated_midpoints'])
+                "midpoints_count": len(eval_c['activated_midpoints']),
+                "expected_months": exp_months_c_str
             })
 
     status_text.empty()
@@ -1331,9 +1394,7 @@ if submit:
         'birth_date': birth_date.strftime("%Y-%m-%d"),
         'birth_time': birth_time.strftime("%H:%M"),
         'birth_city': b_city_name,
-        'sr_city': sr_city_name,
-        'midpoint_deg': marriage_midpoint_lon % 30,
-        'midpoint_sign': ZODIAC_NAMES_AR[int(marriage_midpoint_lon/30)%12]
+        'sr_city': sr_city_name
     }
 
     # توليد ملفات HTML للتقارير
