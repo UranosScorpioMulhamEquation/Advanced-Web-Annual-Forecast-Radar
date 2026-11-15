@@ -1182,7 +1182,7 @@ with st.container():
 
     with col2:
         st.markdown("#### 📅 تاريخ ووقت الميلاد")
-        birth_date = st.date_input("تاريخ الميلاد", value=datetime.date(2000, 1, 1), min_value=datetime.date(1950, 1, 1))
+        birth_date = st.date_input("تاريخ الميلاد", value=datetime.date(2010, 1, 1), min_value=datetime.date(1950, 1, 1))
         birth_time = st.time_input("ساعة الميلاد بدقة", value=datetime.time(14, 30), step=datetime.timedelta(minutes=1))
 
     with col3:
