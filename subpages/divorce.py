@@ -1,6 +1,5 @@
-# divorce_calculator_50_indicators_app.py
 """
-حاسبة الأزمات الزوجية، الطلاق، الانفصال والشراكات المتقدمة (50 دلالة فلكية + 3 ميد بوينت)
+حاسبة الأزمات الزوجية، الطلاق، الانفصال والشراكات المتقدمة (50 دلالة فلكية + جميع ميد بوينت الطلاق)
 إعداد وتطوير: الفلكي الدكتور استرو رادار.
 """
 
@@ -22,7 +21,7 @@ swe.set_ephe_path('')  # استخدام وضع Moshier الافتراضي للت
 # 1. إعدادات واجهة المستخدم وتكوين التطبيق (RTL)
 # =============================================================================
 st.set_page_config(
-    page_title="حاسبة الأزمات الزوجية والطلاق المتقدمة (50 دلالة)",
+    page_title="حاسبة الأزمات الزوجية والطلاق المتقدمة (50 دلالة وميد بوينت شامل)",
     layout="wide",
     page_icon="💔",
 )
@@ -247,10 +246,53 @@ def get_aspect(lon1, lon2, orb=6):
     if abs(diff - 60) <= orb: return "Sextile"
     return None
 
+def check_conjunction_or_opposition(p_lon, midpoint_lon, orb=2.0):
+    """
+    التحقق من اتصال كوكب السنوية بميد بوينت الميلادي:
+    - اقتراب في نفس البرج (0 درجة / نفس الموقع) أو مقابلة تامة (180 درجة) فقط[cite: 7].
+    - الأورب أقل من درجتين (< 2.0°)[cite: 7].
+    """
+    dist = abs((p_lon - midpoint_lon + 180) % 360 - 180)
+    for target_angle in [0.0, 180.0]:
+        diff_from_target = abs(dist - target_angle)
+        if diff_from_target < orb:
+            aspect_label = "اقتران في نفس البرج (0°)" if target_angle == 0.0 else "مقابلة تامة (180°)"
+            return True, aspect_label, diff_from_target
+    return False, None, 0.0
+
+def calculate_expected_months(target_year, birth_date, active_houses):
+    """
+    حساب وتحديد الأشهر المتوقعة للحدث خلال سنة العودة الشمسية بناءً على البيوت الفعالة[cite: 7].
+    """
+    birth_month = birth_date.month
+    months_ar = [
+        "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
+        "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"
+    ]
+    derived_months = []
+    base_month = birth_month
+    
+    for h in active_houses:
+        target_m = ((base_month + h - 2) % 12) + 1
+        derived_months.append(target_m)
+    
+    if not derived_months:
+        derived_months = [base_month, (base_month % 12) + 1]
+        
+    derived_months = sorted(list(set(derived_months)))
+    month_names = [months_ar[m - 1] for m in derived_months]
+    return " و ".join(month_names), derived_months
+
 def check_midpoints_activation(sr_planets, midpoints_dict):
     """
-    فحص تفعيل نقاط المنتصف (10 نقاط منتصف متخصصة للطلاق والنهايات).
-    الشروط: الفرق الفلكي الصافي أقل من درجتين (diff < 2.0°).
+    فحص تفعيل جميع نقاط المنتصف (Midpoints) الشاملة للطلاق والانفصال[cite: 7].
+    الشروط: الأورب أقل من 2 درجة (< 2.0°) للاقتران والمقابلة فقط[cite: 7].
+    التصنيفات المحدثة:
+    - 1 ميد بوينت = عدم ارتياح في العلاقة
+    - 2 ميد بوينت = غضب داخلي
+    - 3 ميد بوينت = مشاكل زوجية حادة
+    - 4 ميد بوينت = تفكير في الطلاق
+    - 5 ميد بوينت فما فوق = طلاق
     """
     activated_details = []
     activated_mp_names = set()
@@ -258,24 +300,28 @@ def check_midpoints_activation(sr_planets, midpoints_dict):
     for mp_name, mp_lon in midpoints_dict.items():
         for p_name, p_data in sr_planets.items():
             p_lon = p_data["lon"]
-            diff = abs((p_lon - mp_lon + 180) % 360 - 180)
-            if diff < 2.0:
+            is_act, aspect_label, diff_val = check_conjunction_or_opposition(p_lon, mp_lon, orb=2.0)
+            if is_act:
                 p_sign_idx = int(p_lon / 30)
                 activated_details.append(
-                    f"تفعيل [{mp_name}] بواسطة كوكب {p_name} السنوي ببرج {ZODIAC_NAMES[p_sign_idx]} (فرق دقيق: {diff:.2f}°)"
+                    f"تفعيل [{mp_name}] بواسطة كوكب **{p_name}** السنوي ببرج {ZODIAC_NAMES[p_sign_idx]} عبر ({aspect_label}) بفارق دقيق: {diff_val:.2f}°"
                 )
                 activated_mp_names.add(mp_name)
 
     count = len(activated_mp_names)
 
-    if count < 3:
+    if count == 0:
         status = "استقرار أو أزمة عابرة"
+    elif count == 1:
+        status = "عدم ارتياح في العلاقة"
+    elif count == 2:
+        status = "غضب داخلي"
     elif count == 3:
-        status = "أزمة زوجية خانقة"
+        status = "مشاكل زوجية حادة"
     elif count == 4:
-        status = "نزاع قضائي/انفصال فعلي"
+        status = "تفكير في الطلاق"
     else:
-        status = "طلاق مؤكد وحتمي وقضاء نهائي"
+        status = "طلاق"
 
     return activated_details, count, status
 
@@ -284,8 +330,8 @@ def check_midpoints_activation(sr_planets, midpoints_dict):
 # =============================================================================
 st.markdown("""
 <div class="main-header">
-    <h1>حاسبة الأزمات الزوجية، الطلاق، الانفصال والشراكات (50 دلالة فلكية)</h1>
-    <p>محرك تحليل فلكي متقدم يعتمد على الـ 10 ميد بوينت وتفعيل 3 نقاط فما فوق + 50 دلالة تفصيلية</p>
+    <h1>حاسبة الأزمات الزوجية، الطلاق، الانفصال والشراكات (50 دلالة فلكية + جميع ميد بوينت الطلاق)</h1>
+    <p>محرك تحليل فلكي متقدم يعتمد على جميع ميد بوينت الطلاق والانفصال بمعايير دقيقة (أورب < 2° للاقتران والمقابلة فقط)</p>
     <p>تطوير: الفلكي الدكتور استرو رادار</p>
 </div>
 """, unsafe_allow_html=True)
@@ -316,7 +362,7 @@ with col3:
     sr_city_names = [c["name"] for c in sr_city_objects] if sr_city_objects else [sr_country_name]
     sr_city_name = st.selectbox("مدينة السنوية", sr_city_names, index=0, key="sr_city_select")
 
-submit = st.button("🚀 بدء الفحص الشامل للسنوات الحرجة والطلاق (50 دلالة)", type="primary")
+submit = st.button("🚀 بدء الفحص الشامل للسنوات الحرجة والطلاق (50 دلالة وميد بوينت شامل)", type="primary")
 
 # =============================================================================
 # 6. المحرك الأساسي ومعالجة البيانات الفلكية الشاملة
@@ -341,24 +387,32 @@ if submit:
         res = swe.calc_ut(jd_birth, p_id)
         natal_planets[p_name] = res[0][0]
 
-    # حساب البيوت الميلادية بنظام ريغومونتانوس (b'R')
+    # حساب البيوت الميلادية بنظام ريغومونتانوس (b'R')[cite: 7]
     natal_cusps, _ = swe.houses(jd_birth, b_lat, b_lon, b"R")
 
-    # نقاط المنتصف (Midpoints) الـ 10 للطلاق والنهايات
+    # جمع كافة ميد بوينت الطلاق، الانفصال والأزمات الزوجية (شامل لكل المحاور الحساسة)[cite: 7]
     natal_midpoints = {
         "زحل/الزهرة": calc_midpoint(natal_planets["Saturn"], natal_planets["Venus"]),
         "زحل/المريخ": calc_midpoint(natal_planets["Saturn"], natal_planets["Mars"]),
         "زحل/القمر": calc_midpoint(natal_planets["Saturn"], natal_planets["Moon"]),
         "زحل/الشمس": calc_midpoint(natal_planets["Saturn"], natal_planets["Sun"]),
+        "زحل/أورانوس": calc_midpoint(natal_planets["Saturn"], natal_planets["Uranus"]),
+        "زحل/بلوتو": calc_midpoint(natal_planets["Saturn"], natal_planets["Pluto"]),
         "أورانوس/الزهرة": calc_midpoint(natal_planets["Uranus"], natal_planets["Venus"]),
         "أورانوس/المريخ": calc_midpoint(natal_planets["Uranus"], natal_planets["Mars"]),
+        "أورانوس/القمر": calc_midpoint(natal_planets["Uranus"], natal_planets["Moon"]),
+        "أورانوس/الشمس": calc_midpoint(natal_planets["Uranus"], natal_planets["Sun"]),
         "بلوتو/الزهرة": calc_midpoint(natal_planets["Pluto"], natal_planets["Venus"]),
         "بلوتو/المريخ": calc_midpoint(natal_planets["Pluto"], natal_planets["Mars"]),
+        "بلوتو/القمر": calc_midpoint(natal_planets["Pluto"], natal_planets["Moon"]),
+        "بلوتو/الشمس": calc_midpoint(natal_planets["Pluto"], natal_planets["Sun"]),
         "المريخ/الزهرة": calc_midpoint(natal_planets["Mars"], natal_planets["Venus"]),
-        "زحل/أورانوس": calc_midpoint(natal_planets["Saturn"], natal_planets["Uranus"]),
+        "زحل/راهو": calc_midpoint(natal_planets["Saturn"], natal_planets["Rahu"]),
+        "أورانوس/راهو": calc_midpoint(natal_planets["Uranus"], natal_planets["Rahu"]),
+        "بلوتو/راهو": calc_midpoint(natal_planets["Pluto"], natal_planets["Rahu"]),
     }
 
-    st.info("📌 تم استخراج المواقع الميلادية ونقاط المنتصف الـ 10 بدقة. جاري مسح العبور السنوي للسنوات العمرية وفقاً لشرط 3 ميد بوينت و50 دلالة...")
+    st.info("📌 تم استخراج المواقع الميلادية وجميع نقاط المنتصف الشاملة للطلاق بدقة. جاري مسح العبور السنوي وفقاً لشرط تفعيل 1 ميد بوينت على الأقل (أورب < 2°) و5 الدلالات السنوية المطلوبة...")
 
     start_year = birth_date.year + 18
     end_year = birth_date.year + 65
@@ -391,12 +445,16 @@ if submit:
                 "is_retro": speed < 0,
             }
 
-        # 1. فحص تفعيل الميد بوينت (بشرط تفعيل 3 نقاط منتصف على الأقل بفارق < 2.0°)
+        # 1. فحص تفعيل الميد بوينت (بشرط تفعيل 1 ميد بوينت على الأقل بفارق < 2.0° لاقتراب نفس البرج أو المقابلة)
         mp_details, mp_count, mp_status = check_midpoints_activation(sr_planets, natal_midpoints)
 
-        if mp_count < 3:
+        if mp_count < 1:
             progress_bar.progress(progress_val)
             continue
+
+        # حساب الأشهر المتوقعة للحدث خلال سنة العودة الشمسية[cite: 7]
+        active_h_crisis = [7, 8, 12, 4, 1]
+        expected_months_str, _ = calculate_expected_months(target_year, birth_date, active_h_crisis)
 
         # =====================================================================
         # 2. تقييم دلالات الطلاق والانفصال السنوية الـ 50 الكاملة
@@ -648,15 +706,15 @@ if submit:
         # 49
         if sr_planets["Mercury"]["house"] == 7:
             dallalat_count += 1
-            dallalat_details.append("49. عطارد في البيت السابع السنوي (كثرة النقاشات العקيمة والجدل القانوني المستمر مع الشريك).")
+            dallalat_details.append("49. عطارد في البيت السابع السنوي (كثرة النقاشات العقيمّة والجدل القانوني المستمر مع الشريك).")
 
         # 50
         if sr_planets["Sun"]["house"] == 7:
             dallalat_count += 1
             dallalat_details.append("50. الشمس في البيت السابع السنوي بصورة سلبيّة أو محترقة (صراع إرادات وتصادم مباشر لا يمكن التسوية فيه).")
 
-        # الشرط الصارم المحدث: تحقق 4 دلالات فما فوق + تفعيل 3 ميد بوينت على الأقل
-        if dallalat_count >= 4 and mp_count >= 3:
+        # الشرط المحدث: تحقق 5 دلالات طلاق فما فوق + تفعيل 1 ميد بوينت على الأقل
+        if dallalat_count >= 5 and mp_count >= 1:
             divorce_years.append({
                 "year": target_year,
                 "age": target_year - birth_date.year,
@@ -665,6 +723,7 @@ if submit:
                 "dallalat_count": dallalat_count,
                 "mp_details": mp_details,
                 "details": dallalat_details,
+                "expected_months": expected_months_str,
             })
 
         progress_bar.progress(progress_val)
@@ -672,7 +731,7 @@ if submit:
     # =============================================================================
     # 7. عرض النتائج وتصدير التقرير
     # =============================================================================
-    st.subheader(f"السنوات الحرجة المرصودة لـ ({name}) وفقاً لشرط 3 ميد بوينت و50 دلالة:")
+    st.subheader(f"السنوات الحرجة المرصودة لـ ({name}) وفقاً لشرط 5 دلالات سنوية وتفعيل ميد بوينت فأكثر:")
 
     if divorce_years:
         html_content = f"""
@@ -696,7 +755,8 @@ if submit:
         for m in divorce_years:
             html_content += f"""
             <div class="card">
-                <h3>سنة {m['year']} (العمر: {m['age']} سنة) — الحالة: {m['mp_status']} | الدلالات: {m['dallalat_count']}/50</h3>
+                <h3>سنة {m['year']} (العمر: {m['age']} سنة) — التصنيف: {m['mp_status']} | الدلالات: {m['dallalat_count']}/50</h3>
+                <p><strong>📅 الأشهر المتوقعة للأزمة أو الانفصال:</strong> {m['expected_months']}</p>
                 <p><strong>تفاصيل تفعيل نقاط المنتصف (Midpoints):</strong></p>
                 <ul>
             """
@@ -719,7 +779,7 @@ if submit:
         """
 
         st.download_button(
-            label="🖨️ تحميل تقرير الأزمات الزوجية (50 دلالة) كملف HTML للطباعة",
+            label="🖨️ تحميل تقرير الأزمات الزوجية (50 دلالة مع الأشهر المتوقعة والميد بوينت) كملف HTML للطباعة",
             data=html_content,
             file_name=f"divorce_report_50_{name.replace(' ', '_')}.html",
             mime="text/html",
@@ -728,8 +788,9 @@ if submit:
         for m in divorce_years:
             with st.expander(f"💥 سنة {m['year']} (العمر: {m['age']} سنة) — التصنيف: [{m['mp_status']}] | عدد الدلالات: ({m['dallalat_count']}/50)"):
                 st.error(f"**حالة الميد بوينت:** {m['mp_status']} (تم تفعيل {m['mp_count']} نقاط منتصف)")
+                st.info(f"📅 **الأشهر المتوقعة للحدث خلال السنة:** {m['expected_months']}")
 
-                st.write("**تفاصيل تفعيل نقاط المنتصف (فرق < 2°):**")
+                st.write("**تفاصيل تفعيل نقاط المنتصف (أورب < 2° للاقتران والمقابلة فقط):**")
                 for act in m["mp_details"]:
                     st.write(f"  * {act}")
 
@@ -738,4 +799,4 @@ if submit:
                 for d in m["details"]:
                     st.write(f"- {d}")
     else:
-        st.success("لم يتم العثور على سنوات تتطابق فيها الشروط الصارمة (تحقق 4 دلالات طلاق فما فوق + تفعيل 3 ميد بوينت على الأقل من أصل 10). الخريطة تشير إلى استقرار تام أو غياب الأزمات المدمرة.")
+        st.success("لم يتم العثور على سنوات تتطابق فيها الشروط الصارمة (تحقق 5 دلالات طلاق فما فوق + تفعيل 1 ميد بوينت على الأقل). الخريطة تشير إلى استقرار تام أو غياب الأزمات المدمرة.")
