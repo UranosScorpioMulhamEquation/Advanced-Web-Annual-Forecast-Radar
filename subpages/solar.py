@@ -498,14 +498,8 @@ table.astro-table tr:hover {{ background-color: #f9f9f9; }}
 </head>
 <body>
 <div class="container">
-
-    <div class="page">
-        <h1>التقرير الفلكي الشامل - السنوية ({html.escape(str(personal_info['target_year']))})</h1>
-<div class="legal-disclaimer">
-        </div>
-    </div>
-
         <div class="page">
+        <h1>التقرير الفلكي الشامل - السنوية ({html.escape(str(personal_info['target_year']))})</h1>
         <h2>البيانات الشخصية والحالة العامة</h2>
         {info_html}
     </div>
