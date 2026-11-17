@@ -324,63 +324,91 @@ html, body, [class*="css"], .stApp {
     border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-    background: #7c3aed;
+    background: #F59E0B;
 }
 
 /* --- تصميم القائمة الجانبية الفاخرة --- */
 [data-testid="stSidebar"] {
     background: linear-gradient(180deg, #0e1322 0%, #080a12 100%) !important;
-    border-left: 1px solid rgba(139, 92, 246, 0.18) !important;
+    border-left: 1px solid rgba(245, 158, 11, 0.22) !important;
     box-shadow: -5px 0 25px rgba(0, 0, 0, 0.4) !important;
 }
 
 [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
-    color: #f8fafc !important;
+    color: #FBBF24 !important;
     font-weight: 800 !important;
     font-size: 22px !important;
-    text-shadow: 0 0 15px rgba(139, 92, 246, 0.4);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    text-shadow: 0 0 15px rgba(245, 158, 11, 0.45);
+    border-bottom: 1px solid rgba(245, 158, 11, 0.15);
     padding-bottom: 12px;
 }
 
-/* تخصيص خيارات القائمة الراديوية كأزرار تفاعلية زجاجية */
+/* تخصيص خيارات القائمة الراديوية كأزرار تفاعلية زجاجية بلون أصفر ذهبي */
 div[data-testid="stRadio"] > div[role="radiogroup"] {
     gap: 8px;
 }
 
 div[data-testid="stRadio"] > div[role="radiogroup"] > label {
-    background: rgba(255, 255, 255, 0.025) !important;
-    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    background: rgba(245, 158, 11, 0.035) !important;
+    border: 1px solid rgba(245, 158, 11, 0.2) !important;
     border-radius: 12px !important;
     padding: 10px 16px !important;
     margin-bottom: 6px !important;
     transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
     cursor: pointer !important;
-    color: #cbd5e1 !important;
 }
 
-div[data-testid="stRadio"] > div[role="radiogroup"] > label:hover {
-    background: rgba(139, 92, 246, 0.12) !important;
-    border-color: rgba(139, 92, 246, 0.35) !important;
-    color: #ffffff !important;
-    transform: translateX(-4px);
-    box-shadow: 0 4px 15px rgba(124, 58, 237, 0.2);
-}
-
-/* العنصر النشط المختار */
-div[data-testid="stRadio"] > div[role="radiogroup"] > label:has(input:checked) {
-    background: linear-gradient(90deg, rgba(124, 58, 237, 0.28) 0%, rgba(79, 70, 229, 0.18) 100%) !important;
-    border: 1px solid #8b5cf6 !important;
-    box-shadow: 0 0 18px rgba(139, 92, 246, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
-    color: #ffffff !important;
-    font-weight: 700 !important;
-}
-
-div[data-testid="stRadio"] > label {
-    color: #FBBF24  !important;
-    font-size: 14px !important;
+/* تلوين نصوص عناصر القائمة إجبارياً بالأصفر الذهبي الساطع وتجاوز اللون الرمادي */
+div[data-testid="stRadio"] label,
+div[data-testid="stRadio"] label p,
+div[data-testid="stRadio"] [data-testid="stMarkdownContainer"] p,
+div[data-testid="stRadio"] span {
+    color: #FBBF24 !important;
+    font-size: 15px !important;
     font-weight: 600 !important;
-    margin-bottom: 10px !important;
+    text-shadow: 0 0 10px rgba(245, 158, 11, 0.25);
+}
+
+/* تأثير التمرير (Hover) */
+div[data-testid="stRadio"] > div[role="radiogroup"] > label:hover {
+    background: rgba(245, 158, 11, 0.14) !important;
+    border-color: #F59E0B !important;
+    transform: translateX(-4px);
+    box-shadow: 0 4px 18px rgba(245, 158, 11, 0.3) !important;
+}
+
+div[data-testid="stRadio"] > div[role="radiogroup"] > label:hover p,
+div[data-testid="stRadio"] > div[role="radiogroup"] > label:hover span {
+    color: #FEF3C7 !important;
+}
+
+/* العنصر النشط المختار بتوهج ذهبي فاخر */
+div[data-testid="stRadio"] > div[role="radiogroup"] > label:has(input:checked) {
+    background: linear-gradient(90deg, rgba(245, 158, 11, 0.26) 0%, rgba(217, 119, 6, 0.16) 100%) !important;
+    border: 1px solid #F59E0B !important;
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+div[data-testid="stRadio"] > div[role="radiogroup"] > label:has(input:checked) p,
+div[data-testid="stRadio"] > div[role="radiogroup"] > label:has(input:checked) span {
+    color: #FFFBEB !important;
+    font-weight: 800 !important;
+    text-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
+}
+
+/* عنوان القائمة "اختر البرنامج:" بالأصفر الذهبي الملكي */
+div[data-testid="stRadio"] > label,
+div[data-testid="stRadio"] > label p {
+    color: #F59E0B !important;
+    font-size: 16px !important;
+    font-weight: 800 !important;
+    margin-bottom: 12px !important;
+    text-shadow: 0 0 12px rgba(245, 158, 11, 0.35);
+}
+
+/* تخصيص مؤشر الراديو الدائري باللون الذهبي */
+div[data-testid="stRadio"] input[type="radio"] {
+    accent-color: #F59E0B !important;
 }
 
 /* --- تخصيص الأزرار الرئيسية --- */
@@ -432,14 +460,14 @@ div[data-testid="stRadio"] > label {
 
 /* بطاقات وتنبيهات مخصصة */
 .sidebar-footer-badge {
-    background: rgba(139, 92, 246, 0.1);
-    border: 1px solid rgba(139, 92, 246, 0.25);
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.25);
     border-radius: 12px;
     padding: 12px;
     margin-top: 25px;
     text-align: center;
     font-size: 13px;
-    color: #c4b5fd;
+    color: #FDE68A;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -447,9 +475,9 @@ div[data-testid="stRadio"] > label {
 # القائمة الجانبية للمنظومة الفلكية
 st.sidebar.markdown("""
 <div style="text-align: center; padding: 10px 0 15px 0;">
-    <div style="font-size: 34px; margin-bottom: 6px; filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.5));">🪐</div>
-    <div style="font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">منظومة استرو رادار</div>
-    <div style="font-size: 12px; color: #a78bfa; font-weight: 600; margin-top: 4px;">المنظومة الفلكية المركزية المطورة v2.6</div>
+    <div style="font-size: 34px; margin-bottom: 6px; filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.5));">🪐</div>
+    <div style="font-size: 20px; font-weight: 800; color: #FBBF24; letter-spacing: -0.5px;">منظومة استرو رادار</div>
+    <div style="font-size: 12px; color: #fde68a; font-weight: 600; margin-top: 4px;">المنظومة الفلكية المركزية المطورة v2.6</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -474,7 +502,7 @@ st.sidebar.markdown("""
     <div style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 4px; font-weight: 700; color: #10b981;">
         <span style="font-size: 10px;">🟢</span> جلسة نشطة وموثقة
     </div>
-    <div style="font-size: 11px; color: #94a3b8;">رقم الاعتماد: 2026-4630</div>
+    <div style="font-size: 11px; color: #fde68a;">رقم الاعتماد: 2026-4630</div>
 </div>
 """, unsafe_allow_html=True)
 
