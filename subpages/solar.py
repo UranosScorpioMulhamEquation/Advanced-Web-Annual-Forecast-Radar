@@ -53,16 +53,19 @@ html, body, [class*="css"] {
 </style>
 """, unsafe_allow_html=True)
 
-# ==================== المسارات والتهيئة ====================
-APP_DIR = os.getcwd()
+# ==================== 1. Security & Paths (Mobile Optimized) ====================
+# تحديد مجلد التطبيق لضمان صلاحيات القراءة والكتابة
+APP_DIR = os.getcwd() # تعريف مبدئي آمن لتجنب NameError
+
 try:
     os.makedirs(APP_DIR, exist_ok=True)
 except Exception:
-    APP_DIR = os.getcwd()
+    APP_DIR = os.getcwd() # كبديل آمن إذا تم تشغيله خارج الأندرويد
 
+# ==================== إعدادات libephemeris ====================
 swe.set_ephe_path(APP_DIR)
 
-# ==================== هياكل البيانات ====================
+# ==================== البيانات والثوابت والهياكل ====================
 class City(NamedTuple):
     geonameid: str
     name: str
@@ -92,7 +95,8 @@ class SolarChart:
     house_system: str = "Whole Sign (كل برج بيت)"
 
 # ==================== تحميل البيانات الجغرافية ====================
-@st.cache_data
+
+@st.cache_data # تم استبدال lru_cache بـ cache_data لتلائم ستريملايت وتمنع التعليق
 def load_cities():
     gc = geonamescache.GeonamesCache()
     cities_list = []
