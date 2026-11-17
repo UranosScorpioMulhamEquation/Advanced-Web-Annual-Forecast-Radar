@@ -66,15 +66,16 @@ except Exception:
 swe.set_ephe_path(APP_DIR)
 
 # ==================== البيانات والثوابت والهياكل ====================
-class City(NamedTuple):
-    geonameid: str
-    name: str
-    country_code: str
-    latitude: float
-    longitude: float
-    admin1: str
-    population: int
-
+@dataclass
+class City:
+    geonameid: str = ""
+    name: str = ""
+    country_code: str = ""
+    latitude: float = 0.0
+    longitude: float = 0.0
+    admin1: str = ""
+    population: int = 0
+    
 @dataclass
 class USMRow:
     age: int
@@ -96,7 +97,7 @@ class SolarChart:
 
 # ==================== تحميل البيانات الجغرافية ====================
 
-@st.cache_data # تم استبدال lru_cache بـ cache_data لتلائم ستريملايت وتمنع التعليق
+@st.cache_resource
 def load_cities():
     gc = geonamescache.GeonamesCache()
     cities_list = []
@@ -115,7 +116,7 @@ def load_cities():
             )
     return cities_list
 
-@st.cache_data
+@st.cache_resource
 def load_countries():
     gc = geonamescache.GeonamesCache()
     return gc.get_countries()
