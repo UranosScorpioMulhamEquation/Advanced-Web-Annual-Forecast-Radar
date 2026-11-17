@@ -364,7 +364,7 @@ div[data-testid="stRadio"] label p,
 div[data-testid="stRadio"] [data-testid="stMarkdownContainer"] p,
 div[data-testid="stRadio"] span {
     color: #FBBF24 !important;
-    font-size: 15px !important;
+    font-size: 13px !important;
     font-weight: 600 !important;
     text-shadow: 0 0 10px rgba(245, 158, 11, 0.25);
 }
