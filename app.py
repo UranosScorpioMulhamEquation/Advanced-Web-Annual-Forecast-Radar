@@ -377,7 +377,7 @@ div[data-testid="stRadio"] > div[role="radiogroup"] > label:has(input:checked) {
 }
 
 div[data-testid="stRadio"] > label {
-    color: #94a3b8 !important;
+    color: #FBBF24  !important;
     font-size: 14px !important;
     font-weight: 600 !important;
     margin-bottom: 10px !important;
