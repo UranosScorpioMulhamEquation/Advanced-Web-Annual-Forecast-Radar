@@ -1015,7 +1015,7 @@ with st.sidebar:
     current_year = datetime.date.today().year
     birth_date = st.date_input(
         "تاريخ الميلاد",
-        value=datetime.date(1981, 4, 17),
+        value=datetime.date(1991, 4, 15),
         min_value=datetime.date(1900, 1, 1),
         max_value=datetime.date(current_year, 12, 31),
     )
